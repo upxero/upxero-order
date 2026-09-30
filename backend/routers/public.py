@@ -263,10 +263,11 @@ async def create_public_order(slug: str, payload: PublicOrderReq):
         "total": total,
         "status": "new",
         "paymentMethod": "on_pickup_or_delivery",
-        "idempotencyKey": payload.idempotencyKey,
         "createdAt": ts,
         "updatedAt": ts,
     }
+    if payload.idempotencyKey:
+        order["idempotencyKey"] = payload.idempotencyKey
     try:
         res = await db.orders.insert_one(order)
     except Exception:

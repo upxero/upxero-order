@@ -13,7 +13,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
 } from "../../components/ui/dialog";
 
 const lineUnit = (l) => l.unitPrice + l.selectedOptions.reduce((s, o) => s + o.price, 0);
@@ -221,6 +221,7 @@ function OptionsModal({ item, onClose, onAdd }) {
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto scroll-thin sm:max-w-md" data-testid="options-modal">
         <DialogHeader><DialogTitle>{item.name}</DialogTitle></DialogHeader>
+        <DialogDescription className="sr-only">Kies opties en aantal voor {item.name}</DialogDescription>
         {item.description && <p className="-mt-2 text-sm text-slate-500">{item.description}</p>}
         <div className="space-y-4">
           {item.optionGroups.map((g) => (

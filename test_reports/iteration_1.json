@@ -1,0 +1,30 @@
+{
+  "summary": "Full backend + frontend validation of Upxero Ordering V1. 22 pytest cases pass covering auth (login/me/logout, super_admin, bad pw), menu categories & items CRUD with option groups & availability toggle, restaurant settings & opening hours persistence, tenant isolation (foreign order 404, cross-tenant category update 404, orders list scoped to caller's restaurantId), public ordering (pickup quote, delivery quote with Photon geocoding for Nieuwstraat 10 1000 Brussel, required-option validation, pickup order creation + idempotent replay returns same orderNumber, price-security: server ignores client-supplied unitPrice/subtotal, delivery below-minimum blocked with 400), and order status transitions (new->accepted->preparing->ready->completed with invalid jump rejected). UI flows verified end-to-end on the deployed preview: login lands on Overzicht with stat cards and bestellink, sidebar navigation renders Categorieën and Menu with seeded data, public /order/bistro-demo shows header/open badge/categories/products, options modal (Saus required + qty stepper) works for Classic Cheeseburger, cart sheet, pickup checkout produced order #1005 (2x Cheeseburger €23,00), delivery checkout to Nieuwstraat 10 1000 Brussel produced #1006 with fee €2,00 (total €36,50 for 3x Cheeseburger). Dashboard Bestellingen advanced #1006 through Accepteren -> In bereiding -> Klaar -> Afronden and cancelled #1005; logout redirects to /login and /dashboard/bestellingen redirects unauthenticated users back to /login.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Public order OptionsModal / CartSheet", "issues": ["React DevTools warning: 'Missing Description or aria-describedby' for shadcn DialogContent (accessibility) - add a DialogDescription or aria-describedby to Radix Dialog to silence and improve screen-reader UX."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_upxero_backend.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "(Optional a11y polish) Add DialogDescription (or aria-describedby) to product options modal, cart sheet and any other Radix Dialog to remove console warnings."
+  ],
+  "critical_code_review_comments": [
+    "auth.py /auth/refresh sets an access_token cookie manually instead of reusing set_auth_cookies helper (duplication + drift risk). Consider calling set_auth_cookies to keep flags/paths consistent.",
+    "server.py CORS allow_origins currently uses FRONTEND_URL env; ensure the deployed FRONTEND_URL matches REACT_APP_BACKEND_URL host so cookies (SameSite=None, Secure) round-trip. Working here because the Authorization Bearer fallback is set by AuthContext.",
+    "public.py create_public_order relies on unique index on (restaurantId, idempotencyKey) to catch races (try/except broad Exception). Confirm ensure_indexes creates a partial unique index (idempotencyKey exists) to avoid rejecting orders without a key.",
+    "orders.py PATCH /orders/{id}/status silently no-ops when payload.status == current (still returns 200); acceptable but consider 409 for clarity.",
+    "restaurants.py update_profile only regeocodes on address change but stores coords silently; consider surfacing geocode failure to the UI (currently just leaves stale coords)."
+  ],
+  "updated_files": ["/app/backend/tests/test_upxero_backend.py"],
+  "success_rate": {"backend": "100% (22/22)", "frontend": "100% of exercised flows"},
+  "test_credentials": "See /app/memory/test_credentials.md (owner@demo.upxero.com / Demo!2025 used).",
+  "seed_data_creation": "Created via public /order flow: pickup order #1005 (completed by dashboard advance), delivery order #1006 (cancelled by dashboard). #1001-1003 pre-existed from prior curl verification.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "backend_test.py at /app/backend/tests/test_upxero_backend.py is fully parallelisable (uses idempotencyKey-prefixed 'TEST-*' data). Public endpoint requires restaurant.orderingEnabled=true and current time within openingHours to accept new orders (else 409). Delivery quote depends on external Photon/Nominatim; can be flaky.",
+  "rca_of_the_issue": "N/A - no defects observed."
+}
