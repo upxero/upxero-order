@@ -1,12 +1,15 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import hashlib
+import secrets
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
 from db import db
-from models import LoginReq, RegisterReq
+from models import ForgotPasswordReq, LoginReq, RegisterReq, ResetPasswordReq
 from security import (clear_auth_cookies, create_access_token,
                       create_refresh_token, get_current_user, hash_password,
                       set_auth_cookies, verify_password, _secret, JWT_ALGORITHM)
+from services.email import send_password_reset_email
 from utils import now_iso, serialize, unique_slug
 import jwt
 from bson import ObjectId
@@ -34,7 +37,6 @@ async def _check_lockout(identifier: str):
 
 
 async def _register_failure(identifier: str, email: str):
-    from datetime import timedelta
     doc = await db.login_attempts.find_one({"identifier": identifier})
     count = (doc.get("count", 0) if doc else 0) + 1
     update = {"count": count, "email": email, "identifier": identifier}
@@ -107,8 +109,8 @@ async def login(payload: LoginReq, request: Request, response: Response):
         raise HTTPException(status_code=403, detail="Account is gedeactiveerd")
 
     await db.login_attempts.delete_many({"identifier": identifier})
-    access = create_access_token(str(user["_id"]), email)
-    refresh = create_refresh_token(str(user["_id"]))
+    access = create_access_token(str(user["_id"]), email, user.get("tokenVersion", 0))
+    refresh = create_refresh_token(str(user["_id"]), user.get("tokenVersion", 0))
     set_auth_cookies(response, access, refresh)
     return {"user": _public_user(user), "token": access}
 
@@ -140,12 +142,73 @@ async def refresh_token(request: Request, response: Response):
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
             raise HTTPException(status_code=401, detail="Gebruiker niet gevonden")
-        access = create_access_token(str(user["_id"]), user["email"])
+        if payload.get("ver", 0) != user.get("tokenVersion", 0):
+            raise HTTPException(status_code=401, detail="Sessie verlopen")
+        access = create_access_token(str(user["_id"]), user["email"], user.get("tokenVersion", 0))
         response.set_cookie("access_token", access, httponly=True, secure=True,
                             samesite="none", max_age=43200, path="/")
         return {"token": access}
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Ongeldig token")
+
+
+@router.post("/forgot-password")
+async def forgot_password(payload: ForgotPasswordReq, background_tasks: BackgroundTasks):
+    email = payload.email.lower().strip()
+    now = datetime.now(timezone.utc)
+    generic = {"message": "Als dit e-mailadres bij ons bekend is, hebben we een resetlink verstuurd."}
+
+    # Record the attempt before lookup so unregistered addresses are throttled too.
+    await db.password_reset_requests.insert_one({"email": email, "created_at": now})
+    per_email = await db.password_reset_requests.count_documents(
+        {"email": email, "created_at": {"$gte": now - timedelta(minutes=15)}}
+    )
+    if per_email > 5:
+        return generic
+    app_wide = await db.password_reset_requests.count_documents(
+        {"created_at": {"$gte": now - timedelta(minutes=10)}}
+    )
+    if app_wide > 10:
+        return generic
+
+    user = await db.users.find_one({"email": email})
+    if not user:
+        return generic
+
+    token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    await db.password_reset_tokens.insert_one({
+        "token_hash": token_hash,
+        "user_id": str(user["_id"]),
+        "email": email,
+        "expires_at": now + timedelta(hours=1),
+        "used": False,
+        "created_at": now,
+    })
+    background_tasks.add_task(send_password_reset_email, user["email"], token)
+    return generic
+
+
+@router.post("/reset-password")
+async def reset_password(payload: ResetPasswordReq):
+    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+    doc = await db.password_reset_tokens.find_one_and_update(
+        {"token_hash": token_hash, "used": False, "expires_at": {"$gt": now}},
+        {"$set": {"used": True}},
+    )
+    if not doc:
+        raise HTTPException(status_code=400, detail="Deze resetlink is ongeldig of verlopen.")
+
+    user_id = doc["user_id"]
+    await db.users.update_one(
+        {"_id": ObjectId(user_id)},
+        {"$set": {"passwordHash": hash_password(payload.password), "updatedAt": now_iso()},
+         "$inc": {"tokenVersion": 1}},
+    )
+    await db.password_reset_tokens.delete_many({"user_id": user_id, "used": False})
+    await db.login_attempts.delete_many({"email": doc["email"]})
+    return {"message": "Je wachtwoord is gewijzigd. Je kunt nu inloggen."}
 
 
 def _default_hours():

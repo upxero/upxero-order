@@ -7,6 +7,8 @@ import { DashboardLayout } from "./components/DashboardLayout";
 import Landing from "./pages/Landing";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import ResetPassword from "./pages/ResetPassword";
 import Overview from "./pages/dashboard/Overview";
 import Orders from "./pages/dashboard/Orders";
 import MenuItems from "./pages/dashboard/MenuItems";
@@ -28,6 +30,8 @@ function App() {
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
           <Route path="/registreren" element={<Register />} />
+          <Route path="/wachtwoord-vergeten" element={<ForgotPassword />} />
+          <Route path="/reset-wachtwoord" element={<ResetPassword />} />
           <Route path="/order/:slug" element={<OrderPage />} />
           <Route path="/order/:slug/bevestiging/:orderId" element={<OrderConfirmation />} />
 

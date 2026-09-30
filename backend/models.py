@@ -17,6 +17,15 @@ class LoginReq(BaseModel):
     password: str
 
 
+class ForgotPasswordReq(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordReq(BaseModel):
+    token: str = Field(min_length=10)
+    password: str = Field(min_length=6, max_length=128)
+
+
 # ---------- Menu ----------
 
 

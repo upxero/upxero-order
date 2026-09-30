@@ -62,7 +62,12 @@ export default function Login() {
               />
             </div>
             <div>
-              <Label htmlFor="password">Wachtwoord</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Wachtwoord</Label>
+                <Link to="/wachtwoord-vergeten" className="text-xs font-semibold text-emerald-600 hover:underline" data-testid="login-forgot-link">
+                  Wachtwoord vergeten?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"

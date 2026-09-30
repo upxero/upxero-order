@@ -26,19 +26,21 @@ def _secret() -> str:
     return os.environ["JWT_SECRET"]
 
 
-def create_access_token(user_id: str, email: str) -> str:
+def create_access_token(user_id: str, email: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
         "email": email,
+        "ver": token_version,
         "exp": datetime.now(timezone.utc) + timedelta(hours=12),
         "type": "access",
     }
     return jwt.encode(payload, _secret(), algorithm=JWT_ALGORITHM)
 
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(user_id: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
+        "ver": token_version,
         "exp": datetime.now(timezone.utc) + timedelta(days=7),
         "type": "refresh",
     }
@@ -72,6 +74,8 @@ async def get_current_user(request: Request) -> dict:
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user or not user.get("isActive", True):
             raise HTTPException(status_code=401, detail="Gebruiker niet gevonden")
+        if payload.get("ver", 0) != user.get("tokenVersion", 0):
+            raise HTTPException(status_code=401, detail="Sessie verlopen")
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Sessie verlopen")

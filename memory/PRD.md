@@ -27,6 +27,7 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - Basic super-admin platform view (list/create restaurants & users).
 - Seeded demo restaurant (bistro-demo) with menu, options, zones; README + .env.example.
 - **Tested**: 22/22 backend pytest pass; 100% of exercised frontend flows pass; tenant isolation, idempotency, price-security, below-minimum all verified.
+- **Password reset (2026-06)**: /auth/forgot-password + /auth/reset-password with hashed single-use 1h tokens (password_reset_tokens, TTL), no user-enumeration (fixed generic response), per-email (5/15m) + app-wide (10/10m) throttling, tokenVersion bump invalidates old sessions, brute-force lockout cleared on reset. Reset email via Emergent-managed email (services/email.py). Frontend routes /wachtwoord-vergeten + /reset-wachtwoord + login "Wachtwoord vergeten?" link. Verified: real send 202 to mike.upxero@gmail.com; old pass rejected, new works, token reuse blocked. Super admin seeded as mike.upxero@gmail.com.
 
 ## Backlog / remaining (not in V1)
 - P1: true realtime (WebSockets/SSE), password reset & email verification, staff invitations, in-app QR generation, richer super-admin, SEO/OG polish, PWA install.
