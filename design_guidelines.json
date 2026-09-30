@@ -1,0 +1,225 @@
+{
+  "project_name": "Upxero Ordering",
+  "app_type": "hybrid_fullstack",
+  "brand_identity": {
+    "name": "Upxero Ordering",
+    "origin": "Upxero (https://www.upxero.com/)",
+    "market": "Belgium & Netherlands (Horeca: restaurants, takeaways, snack bars)",
+    "tone_and_voice": "Professional, calm, trustworthy, practical, ultra-fast, Dutch-first. Serious SaaS product, non-distracting, high utility.",
+    "core_value": "0% Commission, 100% Restaurant Ownership & Direct Customer Ordering",
+    "anti_patterns": [
+      "No food marketplace aggregator look (e.g. UberEats / Thuisbezorgd generic yellow/orange marketing banners)",
+      "No fake charts or vanity analytics widgets in dashboard",
+      "No huge hero marketing banners inside the operational dashboard",
+      "No transparent dropdowns or unreadable text low-contrast elements",
+      "No universal transitions like transition: all"
+    ]
+  },
+  "surfaces": {
+    "dashboard": {
+      "audience": "Restaurant owners and kitchen/front-of-house staff in Belgium/Netherlands",
+      "language": "Dutch (Nederlands)",
+      "navigation": [
+        "Overzicht",
+        "Bestellingen",
+        "Menu",
+        "Categorieën",
+        "Instellingen",
+        "Bezorging",
+        "Openingstijden",
+        "Profiel"
+      ],
+      "aesthetic": "Calm, dense, high-contrast operational tool. Crisp 1px slate borders, quick status toggles, zero clutter, immediate scanning.",
+      "layout_mode": "High Density Grid (Mode B). Left fixed sidebar navigation + top operational header + dense main workspace content."
+    },
+    "ordering_page": {
+      "audience": "End customers ordering food on mobile phones or desktop",
+      "route": "/order/:slug",
+      "aesthetic": "Mobile-first, friction-free, appetizing, ultra-responsive. Sticky category navigation, quick product customization modal, slide-over cart, instant pickup/delivery toggle.",
+      "layout_mode": "Mobile-first single column with floating sticky bottom cart bar on mobile, 2-column wide layout on desktop (menu grid + sticky right order summary)."
+    }
+  },
+  "colors": {
+    "archetype": "ORGANIC & PERFORMANCE PRO HYBRID (Slate Navy + Emerald Trust + Warm Amber Accents)",
+    "palette": {
+      "primary": {
+        "main": "#059669",
+        "hover": "#047857",
+        "active": "#065F46",
+        "foreground": "#FFFFFF"
+      },
+      "secondary": {
+        "main": "#0F172A",
+        "hover": "#1E293B",
+        "foreground": "#F8FAFC"
+      },
+      "accent": {
+        "emerald": "#10B981",
+        "amber": "#D97706",
+        "rose": "#E11D48",
+        "blue": "#2563EB"
+      },
+      "background": {
+        "dashboard": "#F8FAFC",
+        "dashboard_card": "#FFFFFF",
+        "dashboard_sidebar": "#0F172A",
+        "ordering_page": "#FAFAFA",
+        "ordering_card": "#FFFFFF",
+        "cart_drawer": "#FFFFFF"
+      },
+      "text": {
+        "primary": "#0F172A",
+        "secondary": "#475569",
+        "muted": "#64748B",
+        "inverted": "#FFFFFF"
+      },
+      "border": {
+        "default": "#E2E8F0",
+        "subtle": "#F1F5F9",
+        "focus": "#059669",
+        "dark": "#334155"
+      },
+      "status": {
+        "nieuw": {
+          "bg": "#FEF3C7",
+          "text": "#92400E",
+          "border": "#FDE68A"
+        },
+        "in_behandeling": {
+          "bg": "#DBEAFE",
+          "text": "#1E40AF",
+          "border": "#BFDBFE"
+        },
+        "klaar": {
+          "bg": "#D1FAE5",
+          "text": "#065F46",
+          "border": "#A7F3D0"
+        },
+        "afgerond": {
+          "bg": "#F1F5F9",
+          "text": "#475569",
+          "border": "#E2E8F0"
+        },
+        "geannuleerd": {
+          "bg": "#FEE2E2",
+          "text": "#991B1B",
+          "border": "#FCA5A5"
+        }
+      }
+    }
+  },
+  "typography": {
+    "font_family_heading": "Outfit, 'Plus Jakarta Sans', system-ui, sans-serif",
+    "font_family_body": "'Plus Jakarta Sans', Inter, system-ui, sans-serif",
+    "font_family_mono": "'JetBrains Mono', 'Fira Code', monospace",
+    "hierarchy": {
+      "h1": "text-2xl sm:text-3xl font-bold tracking-tight text-slate-900",
+      "h2": "text-xl sm:text-2xl font-semibold tracking-tight text-slate-900",
+      "h3": "text-lg font-semibold text-slate-900",
+      "h4": "text-base font-medium text-slate-900",
+      "body": "text-sm text-slate-700 leading-relaxed",
+      "small": "text-xs font-medium text-slate-500",
+      "price": "font-bold text-slate-900 font-mono tracking-tight"
+    }
+  },
+  "spacing_and_layout": {
+    "grid_systems": {
+      "dashboard": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6",
+      "live_orders_board": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4",
+      "menu_builder": "grid grid-cols-1 lg:grid-cols-3 gap-6",
+      "customer_menu_grid": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4"
+    },
+    "container_padding": "p-4 sm:p-6 lg:p-8",
+    "card_padding": "p-4 sm:p-5",
+    "border_radius": {
+      "card": "rounded-xl",
+      "button": "rounded-lg",
+      "pill": "rounded-full",
+      "badge": "rounded-md"
+    }
+  },
+  "motion_and_interactions": {
+    "rules": [
+      "Use explicit transition properties such as transition-colors duration-200 or transition-transform duration-150. NEVER use transition: all.",
+      "Hover effects on dashboard cards: subtle shadow boost (shadow-md) and 1px border shift to border-slate-300.",
+      "Order status update button click: micro feedback scaling (active:scale-95).",
+      "Cart drawer: slide-in from right/bottom with backdrop blur backdrop-blur-sm bg-slate-900/40."
+    ]
+  },
+  "component_guidelines": {
+    "sidebar": {
+      "background": "bg-slate-900 text-slate-100",
+      "active_item": "bg-emerald-600 text-white font-medium rounded-lg shadow-sm",
+      "inactive_item": "text-slate-400 hover:text-slate-100 hover:bg-slate-800/80 rounded-lg transition-colors"
+    },
+    "cards": {
+      "dashboard_stat": "bg-white rounded-xl border border-slate-200 shadow-sm p-5 flex items-start justify-between",
+      "order_card": "bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:border-slate-300 transition-all space-y-3",
+      "menu_item_card": "bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex justify-between gap-4 hover:shadow-md transition-shadow"
+    },
+    "buttons": {
+      "primary": "bg-emerald-600 hover:bg-emerald-700 text-white font-medium px-4 py-2 rounded-lg shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2",
+      "secondary": "bg-slate-900 hover:bg-slate-800 text-white font-medium px-4 py-2 rounded-lg shadow-sm active:scale-[0.98] transition-all",
+      "outline": "border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-medium px-4 py-2 rounded-lg active:scale-[0.98] transition-colors"
+    },
+    "forms_and_inputs": {
+      "input": "w-full rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-emerald-600 focus:outline-none focus:ring-2 focus:ring-emerald-600/20 transition-all",
+      "switch": "shadcn/ui switch component with emerald active track (bg-emerald-600)",
+      "select": "shadcn/ui custom select component with solid background (never transparent)"
+    }
+  },
+  "media_assets": {
+    "food_and_horeca_images": [
+      {
+        "url": "https://images.unsplash.com/photo-1644162666704-8c4e38e237db?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHw0fHxiZWxnaWFuJTIwd2FmZmxlJTIwZnJpZXMlMjBidXJnZXIlMjByZXN0YXVyYW50JTIwZm9vZHxlbnwwfHx8fDE3OTA3ODU1OTd8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Belgian waffle burger & fries tray",
+        "category": "menu_item"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1600423276591-26d4d93c4830?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwxfHxiZWxnaWFuJTIwd2FmZmxlJTIwZnJpZXMlMjBidXJnZXIlMjByZXN0YXVyYW50JTIwZm9vZHxlbnwwfHx8fDE3OTA3ODU1OTd8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Crispy Belgian waffle fries",
+        "category": "menu_item"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1644162666660-0b6b4f84ee7c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NTJ8MHwxfHNlYXJjaHwzfHxiZWxnaWFuJTIwd2FmZmxlJTIwZnJpZXMlMjBidXJnZXIlMjByZXN0YXVyYW50JTIwZm9vZHxlbnwwfHx8fDE3OTA3ODU1OTd8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Artisan sandwich & fries basket",
+        "category": "menu_item"
+      },
+      {
+        "url": "https://images.pexels.com/photos/31176105/pexels-photo-31176105.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Gourmet chicken sandwich with egg",
+        "category": "menu_item"
+      },
+      {
+        "url": "https://images.pexels.com/photos/31176091/pexels-photo-31176091.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Cheeseburger with crispy fries",
+        "category": "menu_item"
+      },
+      {
+        "url": "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4",
+        "description": "Modern restaurant dining room atmosphere",
+        "category": "restaurant_header"
+      }
+    ]
+  },
+  "testing_attributes": {
+    "mandatory_rule": "ALL interactive and key informational elements MUST include a data-testid attribute in kebab-case format.",
+    "examples": [
+      "data-testid=\"sidebar-nav-bestellingen\"",
+      "data-testid=\"order-status-toggle-online\"",
+      "data-testid=\"order-card-status-button\"",
+      "data-testid=\"menu-category-add-button\"",
+      "data-testid=\"customer-add-to-cart-button\"",
+      "data-testid=\"customer-checkout-submit-button\"",
+      "data-testid=\"order-confirmation-number\""
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Ensure all dashboard text is in clear, natural Dutch (Overzicht, Bestellingen, Menu, Categorieën, Instellingen, Bezorging, Openingstijden, Profiel).",
+    "Use react-icons or lucide-react for all interface icons. Do not use emoji characters for functional icons.",
+    "Ensure Shadcn components used (Dialog, Drawer, Select, Switch, Tabs, Table) are styled with Upxero brand palette (Emerald active state, Dark Slate headers).",
+    "Use sonner for instant toast notifications (e.g. 'Nieuwe bestelling ontvangen', 'Menu item opgeslagen').",
+    "Customer ordering flow (/order/:slug) must be 100% responsive and tested for phone viewports with sticky bottom cart drawer.",
+    "Ensure data-testid attributes are attached to all buttons, inputs, links, cards, and modal triggers as required."
+  ]
+}

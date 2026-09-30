@@ -1,0 +1,23 @@
+import os
+from motor.motor_asyncio import AsyncIOMotorClient
+
+mongo_url = os.environ["MONGO_URL"]
+client = AsyncIOMotorClient(mongo_url)
+db = client[os.environ["DB_NAME"]]
+
+
+async def ensure_indexes():
+    await db.users.create_index("email", unique=True)
+    await db.users.create_index("restaurantId")
+    await db.restaurants.create_index("slug", unique=True)
+    await db.menu_categories.create_index("restaurantId")
+    await db.menu_items.create_index("restaurantId")
+    await db.menu_items.create_index("categoryId")
+    await db.orders.create_index("restaurantId")
+    await db.orders.create_index("status")
+    await db.orders.create_index("createdAt")
+    await db.orders.create_index(
+        [("restaurantId", 1), ("idempotencyKey", 1)], unique=True, sparse=True
+    )
+    await db.login_attempts.create_index("identifier")
+    await db.login_attempts.create_index("email")
