@@ -1,0 +1,24 @@
+{
+  "summary": "Regression + feature validation for the new Orders Alerts UX (sound/notification/tab-title badge/mark-seen). Backend regression: 49 passed, 1 skipped on existing pytest suite (test_upxero_backend.py + test_upxero_status_timing.py) — no changes, no regressions. Frontend: verified initial tab title, first-load seeding (no badge on mount), alerts toggle state change, new-order detection within polling (<10s), badge format '(1) Bestellingen · Upxero Ordering', dedup across additional 15s poll cycle (count stayed at 1), 'Markeer als gezien' resets badge and does NOT re-trigger over 12s, toggle off/on both as owner and staff, staff can access the screen and see tenant's orders. No AudioContext/Notification/document.title console errors.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_upxero_backend.py",
+    "/app/backend/tests/test_upxero_status_timing.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Orders.jsx is tidy (<370 LOC) and uses refs for dedup correctly. Note: initial seeding runs on first successful /orders response; if the very first poll fails (catch sets orders=[] but does not call detectNew), seededRef remains false — the next successful poll would seed from that moment, which is actually the desired behavior.",
+    "notifyNew() still playChime() even when alertsOn gated the call — fine, but ensure chime only triggers after enableAlerts() ran (currently guaranteed by alertsOn check in detectNew).",
+    "Unrelated: Background 401 responses seen in console on dashboard pages — pre-existing, not related to this feature."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (49/49 non-skipped)", "frontend": "100%"},
+  "test_credentials": "owner@demo.upxero.com / Demo!2025, staff@demo.upxero.com / Demo!2025 (from review_request)",
+  "seed_data_creation": "Created a single public order via POST /api/public/restaurant/bistro-demo/orders (customer QA, pickup, 1x Classic Cheeseburger) during the test; ~#1071 generated.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend route for public API returns 403 to urllib default UA; from inside the browser (same page.evaluate fetch) it works fine. If you need to create orders from python, add a browser UA header. Alerts feature verified end-to-end at 2026-01 against preview env.",
+  "rca of the issue": "N/A — no bugs found."
+}

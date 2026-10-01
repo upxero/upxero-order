@@ -37,6 +37,14 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - **Status page** stays optional (customer can close the tab and rely on emails).
 - **Verified (2026-06)**: 49/49 backend pytest pass (new test_upxero_status_timing.py), 100% of exercised frontend flows; email/phone validation (422), hashed token, legacy fallback (200), expiry (410), random token (404), read-only customer endpoint, accept/eta minute presets, invalid minutes (422), full workflow + cancel, tenant isolation on order routes. No regressions.
 
+## New-order alerts on Bestellingen (2026-06)
+- **Frontend-only** (no backend/API changes) on `dashboard/Orders.jsx`. Keeps the existing 10s polling — no WebSockets/SSE/push.
+- Genuinely-new detection: first successful `/orders` load seeds a `knownNewIds` ref (no alert); only ids first seen after mount count as new, so polling never re-alerts the same order.
+- Short two-tone WebAudio chime + browser Notification (permission-gated, never bypassed) fire only after the user clicks "Meldingen aanzetten" (that click also satisfies the autoplay gesture gate).
+- Tab-title badge: `(N) Bestellingen · Upxero Ordering` when there are unseen new orders; restores on unmount.
+- Explicit "Markeer als gezien (N)" button resets the badge; seen ids stay known so they are not re-counted. Works identically for admin & staff; tenant isolation unchanged.
+- **Verified (2026-06)**: backend regression 49/49 pass (no regressions); frontend 100% — first-load seeding, new-order detection <10s, badge format, dedup across poll cycles, mark-seen reset, toggle on/off for admin+staff; no AudioContext/Notification/title console errors.
+
 ## Backlog / remaining (not in V1)
 - P1: true realtime (WebSockets/SSE), password reset & email verification, staff invitations, in-app QR generation, richer super-admin, SEO/OG polish, PWA install.
 - P2: online payments, Whop entitlements/subscriptions, full FR/EN translations, analytics, driving-distance provider, POS integrations.
