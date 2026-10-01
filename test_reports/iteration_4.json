@@ -1,0 +1,28 @@
+{
+  "summary": "Regression + feature validation for the repeating phone-like ring alert in dashboard/Orders.jsx. Backend regression: 49 passed, 1 skipped (unchanged suites). Frontend: initial title correct and no badge on first load; alerts toggle flips 'Meldingen aanzetten' <-> 'Meldingen aan' with no console errors (AudioContext created on user gesture); creating order 1 via POST /api/public/restaurant/bistro-demo/orders is detected within 10s with tab title '(1) Bestellingen · Upxero Ordering' and 'Markeer als gezien (1)' button; creating order 2 bumps title to (2) and badge increments while startRing is guarded (code review of ringTimerRef guard confirms single setInterval); 'Markeer als gezien' clears badge, resets title, stopRing cuts master gain and clears interval, and NO re-trigger occurs over 13s of further polling; accepting the last new order prunes it from unseenIds and clears the badge/title; disabling alerts flips the toggle label back to 'Meldingen aanzetten' (ring loop stops; badge remains independent as spec'd); SPA navigation away from Bestellingen restores document.title to 'Upxero Ordering' (verified via sidebar click, not hard reload); hard reload re-seeds and does NOT falsely alert for pre-existing new orders; staff login can access the Orders screen and sees the restaurant's orders (tenant isolation intact). No pageerror or AudioContext/Notification errors observed. Audio output itself is not asserted in headless (per instructions).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_upxero_backend.py",
+    "/app/backend/tests/test_upxero_status_timing.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "startRing() is correctly guarded by `if (ringTimerRef.current) return;` — a second new order cannot stack a second setInterval loop.",
+    "stopRing() both clears the interval AND sets masterGain to 0, so any already-scheduled oscillator tails are muted immediately on markSeen / accept / reject / disable / unmount.",
+    "detectNew() prunes unseenIds against the fresh id set from the latest /orders response, so accept/reject naturally removes those ids and the ring-loop effect [alertsOn, unseen] stops the loop when unseen hits 0.",
+    "Unmount cleanup correctly stopRings, closes AudioContext, nulls refs and resets document.title to 'Upxero Ordering' — verified via SPA navigation.",
+    "First-load seeding uses seededRef.current — if the first /orders call fails, orders is set to [] and detectNew is not called, so seeding happens on first successful response (safe behavior).",
+    "Minor: notifyBrowser is still called inside detectNew without an explicit guard beyond `alertsOn` — fine, but if the browser denies permission the Notification constructor is wrapped in try/catch so no errors leak.",
+    "No new deps, no WebSocket/SSE/push, no backend changes. Polling remains 10s. Ring interval 3000ms matches spec."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (49/49 non-skipped)", "frontend": "100%"},
+  "test_credentials": "owner@demo.upxero.com / Demo!2025, staff@demo.upxero.com / Demo!2025",
+  "seed_data_creation": "Created 4 public orders via POST /api/public/restaurant/bistro-demo/orders (orderNumbers ~1097-1100) during the test; one was accepted, others left as 'new'.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Dashboard orders route is /dashboard/bestellingen (NL). Public menu API shape is {restaurant, categories, items} where items are top-level (NOT nested under categories). To create orders from Python, use a browser User-Agent header or page.evaluate fetch. For SPA navigation checks (document.title restoration), click sidebar links instead of page.goto (which triggers hard reload and resets to index.html default title 'Emergent | Fullstack App'). Alerts feature (louder repeating ring, dedup via ringTimerRef, prune-on-accept/reject) verified end-to-end at 2026-01.",
+  "rca of the issue": "N/A — no bugs found."
+}
