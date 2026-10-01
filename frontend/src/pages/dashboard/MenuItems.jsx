@@ -12,7 +12,7 @@ import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Switch } from "../../components/ui/switch";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "../../components/ui/dialog";
 
 const emptyItem = {
@@ -174,6 +174,7 @@ export default function MenuItems() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto scroll-thin sm:max-w-2xl" data-testid="menu-dialog">
           <DialogHeader><DialogTitle>{editing ? "Product bewerken" : "Nieuw product"}</DialogTitle></DialogHeader>
+          <DialogDescription className="sr-only">Vul de productgegevens in, voeg een afbeelding en optiegroepen toe.</DialogDescription>
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>

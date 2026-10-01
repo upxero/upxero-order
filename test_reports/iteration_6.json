@@ -1,0 +1,41 @@
+{
+  "summary": "Parts 2-4 (GridFS uploads: logo, menu-item image, menu-file) full validation + Part 1 regression. Backend: new /app/backend/tests/test_uploads.py (19 tests) covering happy-path upload/replace/remove full cycles, magic-byte MIME rejection (fake PNG with MZ header, fake PDF script), empty-file 400, oversized 5MB+1 / 10MB+1 -> 400 'te groot', unauth 401, staff 403 on logo/menu-file/menu-item-image endpoints, cross-tenant isolation (admin A -> 404 on item B via {_id, restaurantId} filter; public /slug-A/menu-item/{item-of-B}/image -> 404; correct slug B -> 200), legacy URL images still returned verbatim in public payload, public restaurant payload exposes route paths (NOT raw file ids: 'imageFileId' popped, 'logoFileId' never emitted), fresh restaurant with no uploads -> public 404 on logo/menu-file. Full regression (test_upxero_backend.py + test_upxero_status_timing.py + test_order_delete.py + test_uploads.py) = 78 passed, 1 skipped (pre-existing delivery-geocoding skip, unchanged). Frontend Playwright: Profile page logo upload -> preview rendered with GridFS route src, remove button visible, persists after reload; menu-file upload -> menu-file-view href points to /api/public/.../menu-file; remove works. MenuItems dialog: image uploaded, preview shows, save persists to backend and list thumb (menu-item-img-{id}) now has GridFS route src. Public /order/bistro-demo header renders data-testid='restaurant-logo' when logo set, and falls back to data-testid='upxero-logo' when logo removed. Only console messages: 2 benign shadcn DialogContent aria-describedby warnings (not blocking).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "MenuItems dialog", "issues": ["Benign a11y warning: DialogContent missing aria-describedby — add Description or aria-describedby=undefined suppression (nice-to-have)."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_uploads.py",
+    "/app/backend/tests/test_upxero_backend.py",
+    "/app/backend/tests/test_upxero_status_timing.py",
+    "/app/backend/tests/test_order_delete.py",
+    "/app/test_reports/pytest/pytest_results.xml",
+    "/app/test_reports/pytest/uploads_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "services/storage.py: _sniff_mime correctly rejects client-supplied content-type by using magic bytes (PNG/JPEG/WebP/PDF) — proven by test_invalid_mime_* (MZ-prefixed fake PNG and shell-script fake PDF both 400). Good.",
+    "Upload endpoints read entire body into memory before size check (data = await file.read()); size check happens AFTER full read. Not exploitable at these caps (5/10 MB), but for defense-in-depth consider streaming + abort when exceeding max_bytes. Non-blocking.",
+    "Replace-then-delete-old is sequential (save new -> update doc -> delete old). If delete fails, you leak one GridFS object; delete_file is already best-effort/swallow — acceptable.",
+    "public._public_restaurant & _public_item correctly serve route paths and pop imageFileId; verified in tests. logoFileId is never added to the public dict (only used in a ternary) — safe.",
+    "Cross-tenant filter {_id, restaurantId} on both menu/items/{id}/image POST and DELETE and on public_menu_item_image is tight — cross-tenant tests return 404 as specified.",
+    "public_logo caches via 'Cache-Control: public, max-age=86400' — the preview URL's Cloudflare proxy rewrites to 'no-store, no-cache, must-revalidate' for all /api responses (ingress-wide), so client-side browser cache will not kick in on preview. Not a backend bug; test asserts header presence rather than exact value.",
+    "menu.delete_item cleans up associated GridFS image via delete_file(item['imageFileId']) — good; prevents orphaned files on item deletion.",
+    "Frontend MenuItems.jsx uploads image AFTER the item POST (two-request flow) which means a successful create + failed image upload leaves an item with no image. Current UX toasts the error — acceptable but could be mentioned.",
+    "Profile.jsx client-side type check (IMG_TYPES / MENU_TYPES) is only UX gating; backend magic-byte sniff is the real guard — verified."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_uploads.py (new)"
+  ],
+  "success_rate": {"backend": "100% (78/78 non-skipped; 1 pre-existing delivery skip unchanged)", "frontend": "100%"},
+  "test_credentials": "owner@demo.upxero.com / Demo!2025 ; staff@demo.upxero.com / Demo!2025 ; mike.upxero@gmail.com / Upxero!Admin2025",
+  "seed_data_creation": "Cross-tenant tests create disposable 2nd restaurants (slug prefix TEST_*) via POST /api/admin/restaurants; menu-item tests create TEST_UP_* items that are deleted in finally blocks. During UI testing a transient logo + menu-file were uploaded to bistro-demo and then removed; a temporary GridFS image on 'Classic Cheeseburger' was uploaded during the MenuItems dialog test and cleaned up at the end (DELETE /api/menu/items/{id}/image).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "GridFS bucket 'uploads' (collections uploads.files, uploads.chunks). All upload endpoints require role restaurant_admin; magic-byte sniff is authoritative. Public serving routes: /api/public/restaurant/{slug}/logo, /menu-item/{id}/image, /menu-file. Public payload uses route paths and never leaks logoFileId/imageFileId. Testids on Profile: profile-logo-input/-upload/-remove/-preview, menu-file-input/-upload/-replace/-remove/-view. Testids on MenuItems: menu-image-input/-upload/-remove/-preview; list thumbs menu-item-img-{id}. The preview URL has an ingress Cache-Control rewrite ('no-store, no-cache, must-revalidate') on all /api responses, so don't assert exact Cache-Control values — assert presence only. For cross-tenant tests, super admin POST /api/admin/restaurants body: {restaurantName, ownerName, email, password}; it returns {id, slug, ...}. Admin API has no delete-restaurant endpoint — soft-leak of TEST_* restaurants in Atlas is acceptable per prior iterations.",
+  "rca of the issue": "N/A — no bugs found. All upload/serve/delete behaviors, auth gating, tenant isolation, MIME sniffing, size caps, legacy fallback, and frontend widgets behave per spec."
+}
