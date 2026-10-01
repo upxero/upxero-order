@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
-  Loader2, Plus, Minus, ShoppingBag, Truck, X, MapPin, Clock, ChevronRight, ArrowLeft,
+  Loader2, Plus, Minus, ShoppingBag, Truck, X, MapPin, Clock, ChevronRight, ArrowLeft, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
@@ -106,6 +106,13 @@ export default function OrderPage() {
               {restaurant.deliveryEnabled && <><Truck className="ml-2 h-4 w-4" /> Bezorgen</>}
             </span>
           </div>
+          {restaurant.menuFileUrl && (
+            <a href={resolveFileUrl(restaurant.menuFileUrl)} target="_blank" rel="noreferrer"
+              data-testid="public-menu-pdf-link"
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
+              <FileText className="h-4 w-4" /> Bekijk menukaart als PDF
+            </a>
+          )}
         </div>
       </div>
 
