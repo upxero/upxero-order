@@ -60,39 +60,71 @@ export default function Orders() {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState("actief");
   const [busy, setBusy] = useState(null);
-  const [unseen, setUnseen] = useState(0);
+  const [unseenIds, setUnseenIds] = useState([]);
   const [alertsOn, setAlertsOn] = useState(false);
+  const unseen = unseenIds.length;
   const knownNewIds = useRef(new Set());
   const seededRef = useRef(false);
   const audioRef = useRef(null);
+  const masterGainRef = useRef(null);
+  const ringTimerRef = useRef(null);
 
-  // Short two-tone chime via Web Audio (no asset); only fires after the user
-  // enabled alerts, which also satisfies the browser autoplay gesture gate.
-  const playChime = () => {
+  // One loud, phone-like trill burst via Web Audio (no asset, no 3rd party).
+  // Routed through a master gain node so the loop can be cut instantly.
+  const playRing = () => {
     const ctx = audioRef.current;
-    if (!ctx) return;
+    const master = masterGainRef.current;
+    if (!ctx || !master) return;
     try {
       const now = ctx.currentTime;
-      [880, 1320].forEach((freq, i) => {
-        const osc = ctx.createOscillator();
+      const pulses = 4, pulseDur = 0.14, gap = 0.06;
+      for (let i = 0; i < pulses; i++) {
+        const start = now + i * (pulseDur + gap);
         const gain = ctx.createGain();
-        osc.type = "sine";
-        osc.frequency.value = freq;
-        const start = now + i * 0.18;
+        gain.connect(master);
         gain.gain.setValueAtTime(0.0001, start);
-        gain.gain.exponentialRampToValueAtTime(0.25, start + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(start);
-        osc.stop(start + 0.24);
-      });
+        gain.gain.exponentialRampToValueAtTime(0.6, start + 0.02);
+        gain.gain.setValueAtTime(0.6, start + pulseDur - 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + pulseDur);
+        [800, 1000].forEach((freq) => {
+          const osc = ctx.createOscillator();
+          osc.type = "triangle";
+          osc.frequency.value = freq;
+          osc.connect(gain);
+          osc.start(start);
+          osc.stop(start + pulseDur);
+        });
+      }
     } catch { /* ignore */ }
+  };
+
+  // Single repeating loop — guarded so overlapping orders never stack loops.
+  const startRing = () => {
+    const ctx = audioRef.current, master = masterGainRef.current;
+    if (!ctx || !master) return;
+    try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(1, ctx.currentTime); } catch { /* ignore */ }
+    if (ringTimerRef.current) return;
+    playRing();
+    ringTimerRef.current = setInterval(playRing, 3000);
+  };
+
+  const stopRing = () => {
+    if (ringTimerRef.current) { clearInterval(ringTimerRef.current); ringTimerRef.current = null; }
+    const ctx = audioRef.current, master = masterGainRef.current;
+    if (ctx && master) {
+      try { master.gain.cancelScheduledValues(ctx.currentTime); master.gain.setValueAtTime(0, ctx.currentTime); } catch { /* ignore */ }
+    }
   };
 
   const enableAlerts = async () => {
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
-      if (AC && !audioRef.current) audioRef.current = new AC();
+      if (AC && !audioRef.current) {
+        audioRef.current = new AC();
+        masterGainRef.current = audioRef.current.createGain();
+        masterGainRef.current.gain.value = 1;
+        masterGainRef.current.connect(audioRef.current.destination);
+      }
       if (audioRef.current?.state === "suspended") await audioRef.current.resume();
     } catch { /* ignore */ }
     if ("Notification" in window && Notification.permission === "default") {
@@ -102,8 +134,7 @@ export default function Orders() {
     toast.success("Meldingen ingeschakeld");
   };
 
-  const notifyNew = (count) => {
-    playChime();
+  const notifyBrowser = (count) => {
     if ("Notification" in window && Notification.permission === "granted") {
       try {
         new Notification(count === 1 ? "Nieuwe bestelling" : `${count} nieuwe bestellingen`, {
@@ -114,21 +145,26 @@ export default function Orders() {
     }
   };
 
-  // Genuinely-new detection: seed known ids on first load (no alert), then only
-  // ids never seen before count as new — so polling never re-alerts.
+  // Genuinely-new detection. First successful load seeds known ids (no alert);
+  // afterwards only never-seen ids count as new. unseenIds is also pruned when an
+  // order leaves "new" (accepted/rejected), which stops the ring automatically.
   const detectNew = (data) => {
-    const ids = data.filter((o) => o.status === "new").map((o) => o.id);
+    const newIds = data.filter((o) => o.status === "new").map((o) => o.id);
+    const newIdSet = new Set(newIds);
     if (!seededRef.current) {
-      ids.forEach((id) => knownNewIds.current.add(id));
+      newIds.forEach((id) => knownNewIds.current.add(id));
       seededRef.current = true;
       return;
     }
-    const fresh = ids.filter((id) => !knownNewIds.current.has(id));
+    const fresh = newIds.filter((id) => !knownNewIds.current.has(id));
     fresh.forEach((id) => knownNewIds.current.add(id));
-    if (fresh.length > 0) {
-      setUnseen((c) => c + fresh.length);
-      if (alertsOn) notifyNew(fresh.length);
-    }
+    setUnseenIds((prev) => {
+      const kept = prev.filter((id) => newIdSet.has(id));
+      const added = fresh.filter((id) => !kept.includes(id));
+      if (!added.length && kept.length === prev.length) return prev;
+      return [...kept, ...added];
+    });
+    if (fresh.length > 0 && alertsOn) notifyBrowser(fresh.length);
   };
 
   const load = async () => {
@@ -143,14 +179,28 @@ export default function Orders() {
     // eslint-disable-next-line
   }, [alertsOn]);
 
-  // Tab-title badge for unseen new orders.
-  useEffect(() => () => { document.title = "Upxero Ordering"; }, []);
+  // Repeating alert loop: rings while alerts are on and >=1 unseen order remains.
+  useEffect(() => {
+    if (alertsOn && unseen > 0) startRing();
+    else stopRing();
+    return stopRing;
+    // eslint-disable-next-line
+  }, [alertsOn, unseen]);
+
+  // Clean up audio + timers on unmount / navigation.
+  useEffect(() => () => {
+    stopRing();
+    if (audioRef.current) { try { audioRef.current.close(); } catch { /* ignore */ } audioRef.current = null; masterGainRef.current = null; }
+    document.title = "Upxero Ordering";
+    // eslint-disable-next-line
+  }, []);
+
   useEffect(() => {
     const base = "Bestellingen · Upxero Ordering";
     document.title = unseen > 0 ? `(${unseen}) ${base}` : base;
   }, [unseen]);
 
-  const markSeen = () => setUnseen(0);
+  const markSeen = () => setUnseenIds([]);
 
   const current = FILTERS.find((f) => f.key === filter);
   const filtered = useMemo(() => {
