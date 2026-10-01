@@ -35,5 +35,9 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 
 ## Next tasks
 - Wire notifications channel (email/browser) via existing abstraction.
-- Add realtime order push with dashboard fallback to polling.
-- Complete FR/EN locale files.
+
+## Staff Invites (2026-10)
+- **Backend**: admin-only, tenant-scoped endpoints on `/restaurant/staff` (invite, list, PATCH active, revoke invitation) + public `/public/invitation/{token}` (GET) and `/public/invitation/accept` (POST). New `staff_invitations` collection: hashed single-use tokens (SHA-256), 7-day TTL, `used`/`revoked` flags, atomic claim via find_one_and_update. restaurantId + email come ONLY from the stored invitation (never the request), so an invitee cannot be attached to another tenant. Accept creates a `restaurant_staff` user (bcrypt pw, tokenVersion 0) and auto-logs-in. Deactivation bumps tokenVersion to kill live sessions; inactive users blocked at login. Tokens never returned in any response.
+- **Frontend**: `/dashboard/personeel` (admin) — invite by email, list staff with activate/deactivate, list + revoke pending invites; sidebar "Personeel" item (admin-only); public `/staff-uitnodiging?token=` acceptance page.
+- **Email**: `send_staff_invitation_email` reuses the managed email integration (fixed template).
+- **Verified**: accept/reuse/expired/revoked handling, staff-scoped access, admin-endpoint 403 for staff, foreign-order 404, deactivation kills session + blocks login, reactivation restores. Existing suite 19 passed / 3 skipped — no regressions.

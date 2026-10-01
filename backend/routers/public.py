@@ -1,11 +1,14 @@
-from datetime import datetime
+import hashlib
+from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 from zoneinfo import ZoneInfo
 
 from db import db
-from models import PublicOrderReq, QuoteReq
+from models import AcceptInviteReq, PublicOrderReq, QuoteReq
+from security import (create_access_token, create_refresh_token, hash_password,
+                      set_auth_cookies)
 from services.distance import geocode, haversine_km
 from services.notifications import notify_new_order
 from utils import next_order_number, now_iso, oid, serialize
@@ -292,3 +295,69 @@ async def public_order_confirmation(order_id: str):
     data["restaurantName"] = r["name"] if r else ""
     data["restaurantSlug"] = r["slug"] if r else ""
     return data
+
+
+# ---------- Staff invitation acceptance (no auth) ----------
+
+_INVALID_INVITE = "Deze uitnodiging is ongeldig, verlopen of al gebruikt."
+
+
+@router.get("/invitation/{token}")
+async def get_invitation(token: str):
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+    inv = await db.staff_invitations.find_one(
+        {"token_hash": token_hash, "used": False, "revoked": False, "expires_at": {"$gt": now}}
+    )
+    if not inv:
+        raise HTTPException(status_code=404, detail=_INVALID_INVITE)
+    r = await db.restaurants.find_one({"_id": ObjectId(inv["restaurantId"])})
+    # Never echo the token or any id the client could use to target another tenant.
+    return {"email": inv["email"], "restaurantName": r["name"] if r else ""}
+
+
+@router.post("/invitation/accept")
+async def accept_invitation(payload: AcceptInviteReq, response: Response):
+    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+    now = datetime.now(timezone.utc)
+    # Atomically claim the invitation so a double-submit cannot consume it twice.
+    inv = await db.staff_invitations.find_one_and_update(
+        {"token_hash": token_hash, "used": False, "revoked": False, "expires_at": {"$gt": now}},
+        {"$set": {"used": True, "usedAt": now}},
+    )
+    if not inv:
+        raise HTTPException(status_code=400, detail=_INVALID_INVITE)
+
+    # restaurantId and email come ONLY from the stored invitation — never the request.
+    email = inv["email"]
+    restaurant_id = inv["restaurantId"]
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=400, detail="Er bestaat al een account met dit e-mailadres.")
+
+    ts = now_iso()
+    user = {
+        "email": email,
+        "passwordHash": hash_password(payload.password),
+        "name": payload.name.strip(),
+        "role": "restaurant_staff",
+        "restaurantId": restaurant_id,
+        "isActive": True,
+        "tokenVersion": 0,
+        "createdAt": ts,
+        "updatedAt": ts,
+    }
+    res = await db.users.insert_one(user)
+    user["_id"] = res.inserted_id
+
+    # Clean up any other pending invites for this email.
+    await db.staff_invitations.update_many(
+        {"email": email, "used": False, "revoked": False},
+        {"$set": {"revoked": True}},
+    )
+
+    access = create_access_token(str(res.inserted_id), email, 0)
+    refresh = create_refresh_token(str(res.inserted_id), 0)
+    set_auth_cookies(response, access, refresh)
+    public = serialize(user)
+    public.pop("passwordHash", None)
+    return {"user": public, "token": access}

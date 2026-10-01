@@ -26,6 +26,20 @@ class ResetPasswordReq(BaseModel):
     password: str = Field(min_length=6, max_length=128)
 
 
+class InviteStaffReq(BaseModel):
+    email: EmailStr
+
+
+class AcceptInviteReq(BaseModel):
+    token: str = Field(min_length=10)
+    name: str = Field(min_length=2, max_length=80)
+    password: str = Field(min_length=6, max_length=128)
+
+
+class StaffActiveReq(BaseModel):
+    isActive: bool
+
+
 # ---------- Menu ----------
 
 

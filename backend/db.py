@@ -33,3 +33,7 @@ async def ensure_indexes():
     await db.password_reset_tokens.create_index("token_hash", unique=True)
     await db.password_reset_requests.create_index("email")
     await db.password_reset_requests.create_index("created_at", expireAfterSeconds=900)
+    await db.staff_invitations.create_index("token_hash", unique=True)
+    await db.staff_invitations.create_index("expires_at", expireAfterSeconds=0)
+    await db.staff_invitations.create_index("restaurantId")
+    await db.staff_invitations.create_index("email")

@@ -9,6 +9,7 @@ import {
   Truck,
   Clock,
   Store,
+  Users,
   Menu as MenuIcon,
   X,
   LogOut,
@@ -60,6 +61,21 @@ export function DashboardLayout() {
           {label}
         </NavLink>
       ))}
+      {user?.role === "restaurant_admin" && (
+        <NavLink
+          to="/dashboard/personeel"
+          onClick={() => setOpen(false)}
+          data-testid="sidebar-nav-personeel"
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              isActive ? "bg-emerald-600 text-white shadow-sm" : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            }`
+          }
+        >
+          <Users className="h-4.5 w-4.5" size={18} />
+          Personeel
+        </NavLink>
+      )}
       {user?.role === "super_admin" && (
         <NavLink
           to="/dashboard/platform"

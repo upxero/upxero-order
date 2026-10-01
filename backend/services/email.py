@@ -53,3 +53,41 @@ async def send_password_reset_email(to_email: str, token: str) -> bool:
     except Exception as exc:
         logger.error("Reset-e-mail versturen mislukt: %s", exc)
         return False
+
+
+async def send_staff_invitation_email(to_email: str, token: str, restaurant_name: str, inviter_name: str) -> bool:
+    """Send a staff invitation link. Fixed server-side template; return value is for logging only."""
+    base = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    link = f"{base}/staff-uitnodiging?token={token}"
+    if not EMAIL_KEY or EMAIL_KEY.startswith("{") or not base.startswith("https://"):
+        if urlparse(base).hostname in ("localhost", "127.0.0.1", "::1"):
+            logger.warning("E-mail niet geconfigureerd; uitnodigingslink: %s", link)
+        else:
+            logger.error("Uitnodigingsmail niet geconfigureerd (EMERGENT_EMAIL_KEY / FRONTEND_URL)")
+        return False
+
+    brand = escape(EMAIL_FROM_NAME)
+    resto = escape(restaurant_name or brand)
+    inviter = escape(inviter_name or "het team")
+    html = (
+        f'<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#0f172a">'
+        f'<h2 style="margin:0 0 12px">Je bent uitgenodigd</h2>'
+        f'<p>{inviter} heeft je uitgenodigd om mee te helpen bij <strong>{resto}</strong> op {brand}.</p>'
+        f'<p style="margin:24px 0"><a href="{escape(link)}" style="background:#059669;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Account aanmaken</a></p>'
+        f'<p>Via deze link maak je je eigen wachtwoord aan. De link verloopt binnen 7 dagen en kan één keer gebruikt worden.</p>'
+        f'<p style="font-size:12px;color:#888;margin-top:24px">Verzonden door {brand}. We vragen nooit je wachtwoord per e-mail.</p>'
+        f'</td></tr></table>'
+    )
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.post(
+                f"{EMAIL_BASE_URL}/api/v1/email/send",
+                headers={"X-Email-Key": EMAIL_KEY},
+                json={"to": [to_email], "subject": f"Uitnodiging voor {restaurant_name} op {EMAIL_FROM_NAME}",
+                      "html": html, "from_name": EMAIL_FROM_NAME},
+            )
+        resp.raise_for_status()
+        return True
+    except Exception as exc:
+        logger.error("Uitnodigingsmail versturen mislukt: %s", exc)
+        return False
