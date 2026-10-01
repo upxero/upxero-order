@@ -1,0 +1,38 @@
+{
+  "summary": "Full regression + V2 refinement validation (customer order status & timing). Backend: 49/50 pytest cases pass, 1 skipped (delivery E2E skipped because the cheapest-item scenario hit the delivery minimum rejection path — that path is already covered elsewhere). Covered: email now required (missing/invalid -> 422), phone still required (-> 422), valid pickup order returns status='new', estimatedMinutes=null, a plaintext statusToken, and NO statusTokenHash in payload. /api/public/order-status/{token} returns safe projection (no statusToken/statusTokenHash/id/restaurantId/_id/idempotencyKey). Random token -> 404. Expired token (statusTokenExpiresAt in past, simulated in Mongo) -> 410. Legacy plaintext token fallback (simulated by setting legacy statusToken + unsetting hash) -> 200. Accept with estimatedMinutes 10/30/60 persists correctly, no HH:MM clock string emitted. PATCH /orders/{id}/eta to 45 persists and the public status page reflects it. Invalid minutes 0 / 9999 / -5 / -1 / 601 are all rejected 422 on both /status and /eta. Full workflow new->accepted->preparing->ready->completed enforced; illegal transition new->ready => 400; cancel-from-new and cancel-from-ready both allowed; completed is terminal. Tenant isolation: PATCH /orders/<other-id>/status and /eta on an id not owned by caller -> 404. Email toggles orderEmailsEnabled and customerEmailsEnabled are independently settable in Mongo via /restaurant/settings. Frontend E2E via Playwright on the deployed preview: pickup checkout button is disabled without email AND disabled for invalid email ('notanemail') AND enabled only with a valid email; order POST returns 200 with no statusTokenHash leak, redirects to /order-status/<token>; owner login -> /dashboard/bestellingen -> order card visible -> Accepteren dialog -> minute preset 30 -> PATCH /status returns 200 with estimatedMinutes=30 -> ETA edit dialog -> preset 45 -> PATCH /eta returns 200 -> /order-status/<token> renders exactly 'Verwachte bereidingstijd' + 'ongeveer 45 minuten' in the ETA panel.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard accept + eta dialogs (Radix)", "issues": ["Console warning: 'Missing Description or aria-describedby={undefined} for DialogContent' on accept-dialog and eta-dialog. Pre-existing a11y gap (same note as iteration_1 for options/cart dialogs). Non-blocking."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_upxero_backend.py",
+    "/app/backend/tests/test_upxero_status_timing.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional a11y) Add <DialogDescription> (or aria-describedby) to the accept/eta Radix dialogs in /app/frontend/src/pages/dashboard/Orders.jsx to silence the Radix console warning. Same for options/cart dialogs flagged previously."
+  ],
+  "critical_code_review_comments": [
+    "public.py expired-token path: when statusTokenExpiresAt is missing on NEW orders, we fall back to createdAt + 30d — fine, but on orders where ObjectId's generation_time could be more reliable, consider the ObjectId timestamp as a secondary floor. Minor.",
+    "orders.py update_status silently no-ops when payload.status==current (returns 200, no notify). Acceptable per prior review; consider 409 for clarity.",
+    "models.py EtaReq.estimatedMinutes is int (non-optional). Good — mirrors validator. StatusReq.estimatedMinutes is Optional[int] which correctly allows 'accept without time' (skip button).",
+    "_order_result_with_token always derives a token for the client even for legacy orders missing statusToken; that is correct (lookup falls back to plaintext). Confirmed working via explicit legacy-fallback test.",
+    "Public /public/order-status response (safe projection) deliberately drops `id` — that is correct for the customer page; _public_order_view does NOT leak restaurantId / statusToken / statusTokenHash / idempotencyKey. Verified by explicit assertion.",
+    "Tenant isolation on /orders/{id}/status and /eta is enforced by the {_id, restaurantId} query filter (returns 404 when not owned). Verified with synthetic ObjectId (second restaurant not creatable from this suite)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_upxero_backend.py (added customer.email on all order-creation payloads to match new required-email contract; fixed SUPER admin email to mike.upxero@gmail.com per /app/memory/test_credentials.md)",
+    "/app/backend/tests/test_upxero_status_timing.py (new; 27 assertions covering V2 refinement — email/phone validation, hashed token, legacy fallback, expiry 410, random 404, read-only customer endpoint, accept/eta minute presets, invalid minutes, workflow + cancel, tenant isolation on orders, independent email toggles)"
+  ],
+  "success_rate": {"backend": "100% (49/49 run; 1 skip for delivery-minimum path)", "frontend": "100% of exercised flows"},
+  "test_credentials": "owner@demo.upxero.com / Demo!2025 (restaurant_admin); mike.upxero@gmail.com / Upxero!Admin2025 (super_admin). See /app/memory/test_credentials.md.",
+  "seed_data_creation": "Many TEST-prefixed orders created (TEST-V2-*, TEST-NOEMAIL-*, TEST-NOPH-*, TEST-DELIV-*, TEST-FLOW-*) and one UI pickup order #1046 (accepted, estimatedMinutes=45). All isolated under restaurant 'bistro-demo'.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Two pytest files now exist under /app/backend/tests/: test_upxero_backend.py (regression) and test_upxero_status_timing.py (V2 refinement). Run with REACT_APP_BACKEND_URL + MONGO_URL + DB_NAME set; pytest.ini uses pytest-xdist loadscope by default — override with `-o addopts=` if you want sequential. Expiry/legacy-fallback tests patch Mongo directly (MongoClient on MONGO_URL). The Emergent Resend provider may return 429 on bursts; emails are BackgroundTasks and do not fail order writes — this is confirmed by orders being persisted even when email bursts hit. Delivery E2E test skips if the cheapest-item 5x scenario falls below the zone minimum — not a bug.",
+  "rca_of_the_issue": "N/A — no defects observed in V2 refinement; all 7 request bullets confirmed working end-to-end."
+}

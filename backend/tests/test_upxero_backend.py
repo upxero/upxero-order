@@ -15,7 +15,7 @@ API = f"{BASE_URL}/api"
 
 OWNER = {"email": "owner@demo.upxero.com", "password": "Demo!2025"}
 STAFF = {"email": "staff@demo.upxero.com", "password": "Demo!2025"}
-SUPER = {"email": "admin@upxero.com", "password": "Upxero!Admin2025"}
+SUPER = {"email": "mike.upxero@gmail.com", "password": "Upxero!Admin2025"}
 SLUG = "bistro-demo"
 
 
@@ -262,7 +262,7 @@ class TestPublicOrdering:
         body = {
             "orderType": "pickup",
             "items": [{"productId": item["id"], "quantity": 1, "selectedOptions": []}],
-            "customer": {"name": "TEST User", "phone": "0400000000"},
+            "customer": {"name": "TEST User", "phone": "0400000000", "email": "test.user@example.com"},
             "idempotencyKey": key,
         }
         r1 = requests.post(f"{API}/public/restaurant/{SLUG}/orders", json=body, timeout=30)
@@ -291,7 +291,7 @@ class TestPublicOrdering:
             "orderType": "pickup",
             "items": [{"productId": item["id"], "quantity": 1, "selectedOptions": [],
                        "price": 0.01, "unitPrice": 0.01}],
-            "customer": {"name": "TEST Sec", "phone": "0400000000"},
+            "customer": {"name": "TEST Sec", "phone": "0400000000", "email": "sec@example.com"},
             "idempotencyKey": f"TEST-SEC-{uuid.uuid4()}",
             "subtotal": 0.01, "total": 0.01,
         }
@@ -314,7 +314,7 @@ class TestPublicOrdering:
         body = {
             "orderType": "delivery",
             "items": [{"productId": cheapest["id"], "quantity": 1, "selectedOptions": []}],
-            "customer": {"name": "TEST Min", "phone": "0400000000"},
+            "customer": {"name": "TEST Min", "phone": "0400000000", "email": "min@example.com"},
             "deliveryAddress": {"street": "Nieuwstraat", "houseNumber": "10",
                                 "postalCode": "1000", "city": "Brussel"},
             "idempotencyKey": f"TEST-MIN-{uuid.uuid4()}",
@@ -340,7 +340,7 @@ class TestOrderStatus:
         body = {
             "orderType": "pickup",
             "items": [{"productId": item["id"], "quantity": 1, "selectedOptions": []}],
-            "customer": {"name": "TEST Flow", "phone": "0400000000"},
+            "customer": {"name": "TEST Flow", "phone": "0400000000", "email": "flow@example.com"},
             "idempotencyKey": f"TEST-FLOW-{uuid.uuid4()}",
         }
         r = requests.post(f"{API}/public/restaurant/{SLUG}/orders", json=body, timeout=30)

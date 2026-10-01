@@ -9,7 +9,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "../../components/ui/dialog";
 
 const FILTERS = [
@@ -240,6 +240,7 @@ function OrderCard({ order, onStatus, onEta, busy }) {
       <Dialog open={acceptOpen} onOpenChange={setAcceptOpen}>
         <DialogContent className="sm:max-w-sm" data-testid={`accept-dialog-${order.orderNumber}`}>
           <DialogHeader><DialogTitle>Bestelling #{order.orderNumber} accepteren</DialogTitle></DialogHeader>
+          <DialogDescription className="sr-only">Kies een verwachte tijd en bevestig de bestelling.</DialogDescription>
           <div>
             <Label>{etaLabel} (optioneel)</Label>
             <MinutesPicker value={acceptMins} onChange={setAcceptMins} testPrefix={`accept-${order.orderNumber}`} />
@@ -257,6 +258,7 @@ function OrderCard({ order, onStatus, onEta, busy }) {
       <Dialog open={etaOpen} onOpenChange={setEtaOpen}>
         <DialogContent className="sm:max-w-sm" data-testid={`eta-dialog-${order.orderNumber}`}>
           <DialogHeader><DialogTitle>{etaLabel} aanpassen</DialogTitle></DialogHeader>
+          <DialogDescription className="sr-only">Pas de verwachte tijd van deze bestelling aan.</DialogDescription>
           <div>
             <Label>{etaLabel}</Label>
             <MinutesPicker value={etaMins} onChange={setEtaMins} testPrefix={`eta-${order.orderNumber}`} />
