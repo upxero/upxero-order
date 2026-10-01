@@ -13,7 +13,8 @@ export default function Settings() {
   useEffect(() => {
     api.get("/restaurant/me").then(({ data }) =>
       setState({ orderingEnabled: data.orderingEnabled, pickupEnabled: data.pickupEnabled,
-                 orderEmailsEnabled: data.orderEmailsEnabled !== false })
+                 orderEmailsEnabled: data.orderEmailsEnabled !== false,
+                 customerEmailsEnabled: data.customerEmailsEnabled !== false })
     );
   }, []);
 
@@ -75,6 +76,19 @@ export default function Settings() {
             </div>
           </div>
           <Switch checked={state.orderEmailsEnabled} onCheckedChange={(v) => update({ orderEmailsEnabled: v })} data-testid="settings-order-emails-switch" />
+        </div>
+      </Card>
+
+      <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><Bell className="h-5 w-5" /></span>
+            <div>
+              <p className="font-semibold text-slate-900">Klantmeldingen per e-mail</p>
+              <p className="text-sm text-slate-500">Stuur de klant updates (ontvangen, bevestigd, klaar/onderweg) als ze een e-mailadres opgeven.</p>
+            </div>
+          </div>
+          <Switch checked={state.customerEmailsEnabled} onCheckedChange={(v) => update({ customerEmailsEnabled: v })} data-testid="settings-customer-emails-switch" />
         </div>
       </Card>
     </div>

@@ -1,11 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Phone, MapPin, StickyNote, ShoppingBag, Truck, RefreshCw } from "lucide-react";
+import { Loader2, Phone, MapPin, StickyNote, ShoppingBag, Truck, RefreshCw, Clock, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { euro, formatTime } from "../../lib/format";
-import { STATUS_LABELS, STATUS_STYLES, NEXT_ACTION } from "../../lib/constants";
+import { STATUS_LABELS, STATUS_STYLES } from "../../lib/constants";
 import { EmptyState } from "../../components/EmptyState";
 import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "../../components/ui/dialog";
 
 const FILTERS = [
   { key: "actief", label: "Actief", statuses: ["new", "accepted", "preparing", "ready"] },
@@ -15,18 +20,24 @@ const FILTERS = [
   { key: "all", label: "Alles", statuses: null },
 ];
 
+// Next forward action per status; `ready` label depends on order type.
+function nextAction(order) {
+  switch (order.status) {
+    case "accepted": return { status: "preparing", label: "In bereiding" };
+    case "preparing": return { status: "ready", label: order.orderType === "delivery" ? "Onderweg" : "Klaar om af te halen" };
+    case "ready": return { status: "completed", label: "Voltooid" };
+    default: return null;
+  }
+}
+
 export default function Orders() {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState("actief");
   const [busy, setBusy] = useState(null);
 
   const load = async () => {
-    try {
-      const { data } = await api.get("/orders");
-      setOrders(data);
-    } catch (e) {
-      setOrders([]);
-    }
+    try { const { data } = await api.get("/orders"); setOrders(data); }
+    catch { setOrders([]); }
   };
 
   useEffect(() => {
@@ -42,17 +53,22 @@ export default function Orders() {
     return orders.filter((o) => current.statuses.includes(o.status));
   }, [orders, current]);
 
-  const changeStatus = async (id, status) => {
+  const changeStatus = async (id, status, estimatedTime) => {
     setBusy(id + status);
     try {
-      await api.patch(`/orders/${id}/status`, { status });
+      await api.patch(`/orders/${id}/status`, estimatedTime ? { status, estimatedTime } : { status });
       toast.success(`Bestelling → ${STATUS_LABELS[status]}`);
       await load();
-    } catch (e) {
-      toast.error(apiError(e));
-    } finally {
-      setBusy(null);
-    }
+    } catch (e) { toast.error(apiError(e)); } finally { setBusy(null); }
+  };
+
+  const updateEta = async (id, estimatedTime) => {
+    setBusy(id + "eta");
+    try {
+      await api.patch(`/orders/${id}/eta`, { estimatedTime });
+      toast.success("Verwachte tijd bijgewerkt");
+      await load();
+    } catch (e) { toast.error(apiError(e)); } finally { setBusy(null); }
   };
 
   return (
@@ -69,14 +85,8 @@ export default function Orders() {
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
-          <button
-            key={f.key}
-            onClick={() => setFilter(f.key)}
-            data-testid={`orders-filter-${f.key}`}
-            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
-              filter === f.key ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"
-            }`}
-          >
+          <button key={f.key} onClick={() => setFilter(f.key)} data-testid={`orders-filter-${f.key}`}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${filter === f.key ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"}`}>
             {f.label}
           </button>
         ))}
@@ -85,16 +95,11 @@ export default function Orders() {
       {orders === null ? (
         <div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>
       ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={ShoppingBag}
-          title="Nog geen bestellingen"
-          description="Nieuwe bestellingen verschijnen hier automatisch."
-          testid="orders-empty"
-        />
+        <EmptyState icon={ShoppingBag} title="Nog geen bestellingen" description="Nieuwe bestellingen verschijnen hier automatisch." testid="orders-empty" />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((o) => (
-            <OrderCard key={o.id} order={o} onStatus={changeStatus} busy={busy} />
+            <OrderCard key={o.id} order={o} onStatus={changeStatus} onEta={updateEta} busy={busy} />
           ))}
         </div>
       )}
@@ -102,9 +107,16 @@ export default function Orders() {
   );
 }
 
-function OrderCard({ order, onStatus, busy }) {
-  const next = NEXT_ACTION[order.status];
+function OrderCard({ order, onStatus, onEta, busy }) {
+  const next = nextAction(order);
   const canCancel = !["completed", "cancelled"].includes(order.status);
+  const etaEditable = ["accepted", "preparing", "ready"].includes(order.status);
+  const etaLabel = order.orderType === "delivery" ? "Verwachte bezorgtijd" : "Verwachte afhaaltijd";
+  const [acceptOpen, setAcceptOpen] = useState(false);
+  const [acceptEta, setAcceptEta] = useState("");
+  const [etaOpen, setEtaOpen] = useState(false);
+  const [etaVal, setEtaVal] = useState(order.estimatedTime || "");
+
   return (
     <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-testid={`order-card-${order.orderNumber}`}>
       <div className="flex items-start justify-between">
@@ -143,9 +155,7 @@ function OrderCard({ order, onStatus, busy }) {
               <span className="text-slate-700"><span className="font-semibold text-slate-900">{it.quantity}×</span> {it.productName}</span>
               <span className="tabular text-slate-600">{euro(it.lineTotal)}</span>
             </div>
-            {it.selectedOptions?.length > 0 && (
-              <p className="pl-5 text-xs text-slate-400">{it.selectedOptions.map((s) => s.optionName).join(", ")}</p>
-            )}
+            {it.selectedOptions?.length > 0 && <p className="pl-5 text-xs text-slate-400">{it.selectedOptions.map((s) => s.optionName).join(", ")}</p>}
           </li>
         ))}
       </ul>
@@ -156,6 +166,15 @@ function OrderCard({ order, onStatus, busy }) {
         </p>
       )}
 
+      {etaEditable && (
+        <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm" data-testid={`order-eta-${order.orderNumber}`}>
+          <span className="flex items-center gap-1.5 text-slate-600"><Clock className="h-3.5 w-3.5" /> {etaLabel}: <strong className="text-slate-900">{order.estimatedTime || "—"}</strong></span>
+          <button onClick={() => { setEtaVal(order.estimatedTime || ""); setEtaOpen(true); }} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600" data-testid={`order-eta-edit-${order.orderNumber}`}>
+            <Pencil className="h-3 w-3" /> Wijzigen
+          </button>
+        </div>
+      )}
+
       <div className="mt-3 space-y-0.5 border-t border-slate-100 pt-3 text-sm">
         <div className="flex justify-between text-slate-500"><span>Subtotaal</span><span className="tabular">{euro(order.subtotal)}</span></div>
         {order.orderType === "delivery" && (
@@ -164,32 +183,65 @@ function OrderCard({ order, onStatus, busy }) {
         <div className="flex justify-between font-semibold text-slate-900"><span>Totaal</span><span className="tabular">{euro(order.total)}</span></div>
       </div>
 
-      {(next || canCancel) && (
-        <div className="mt-4 flex gap-2">
-          {next && (
-            <Button
-              onClick={() => onStatus(order.id, next.status)}
-              disabled={busy === order.id + next.status}
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]"
-              data-testid={`order-advance-${order.orderNumber}`}
-            >
-              {busy === order.id + next.status && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {next.label}
+      <div className="mt-4 flex flex-wrap gap-2">
+        {order.status === "new" && (
+          <>
+            <Button onClick={() => { setAcceptEta(""); setAcceptOpen(true); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]" data-testid={`order-accept-${order.orderNumber}`}>
+              Accepteren
             </Button>
-          )}
-          {canCancel && (
-            <Button
-              variant="outline"
-              onClick={() => onStatus(order.id, "cancelled")}
-              disabled={busy === order.id + "cancelled"}
-              className="border-slate-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700"
-              data-testid={`order-cancel-${order.orderNumber}`}
-            >
-              Annuleren
+            <Button variant="outline" onClick={() => onStatus(order.id, "cancelled")} disabled={busy === order.id + "cancelled"}
+              className="border-slate-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700" data-testid={`order-reject-${order.orderNumber}`}>
+              Weigeren
             </Button>
-          )}
-        </div>
-      )}
+          </>
+        )}
+        {next && (
+          <Button onClick={() => onStatus(order.id, next.status)} disabled={busy === order.id + next.status}
+            className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]" data-testid={`order-advance-${order.orderNumber}`}>
+            {busy === order.id + next.status && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {next.label}
+          </Button>
+        )}
+        {order.status !== "new" && canCancel && (
+          <Button variant="outline" onClick={() => onStatus(order.id, "cancelled")} disabled={busy === order.id + "cancelled"}
+            className="border-slate-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700" data-testid={`order-cancel-${order.orderNumber}`}>
+            Annuleren
+          </Button>
+        )}
+      </div>
+
+      {/* Accept + ETA dialog */}
+      <Dialog open={acceptOpen} onOpenChange={setAcceptOpen}>
+        <DialogContent className="sm:max-w-sm" data-testid={`accept-dialog-${order.orderNumber}`}>
+          <DialogHeader><DialogTitle>Bestelling #{order.orderNumber} accepteren</DialogTitle></DialogHeader>
+          <div>
+            <Label htmlFor={`eta-${order.orderNumber}`}>{etaLabel} (optioneel)</Label>
+            <Input id={`eta-${order.orderNumber}`} type="time" value={acceptEta} onChange={(e) => setAcceptEta(e.target.value)} className="mt-1.5" data-testid={`accept-eta-input-${order.orderNumber}`} />
+            <p className="mt-1.5 text-xs text-slate-400">De klant ziet deze tijd op de statuspagina en ontvangt een e-mail.</p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setAcceptOpen(false); onStatus(order.id, "accepted"); }} data-testid={`accept-skip-${order.orderNumber}`}>Zonder tijd</Button>
+            <Button onClick={() => { setAcceptOpen(false); onStatus(order.id, "accepted", acceptEta || undefined); }}
+              className="bg-emerald-600 hover:bg-emerald-700" data-testid={`accept-confirm-${order.orderNumber}`}>Bevestigen</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ETA update dialog */}
+      <Dialog open={etaOpen} onOpenChange={setEtaOpen}>
+        <DialogContent className="sm:max-w-sm" data-testid={`eta-dialog-${order.orderNumber}`}>
+          <DialogHeader><DialogTitle>{etaLabel} aanpassen</DialogTitle></DialogHeader>
+          <div>
+            <Label htmlFor={`etaup-${order.orderNumber}`}>{etaLabel}</Label>
+            <Input id={`etaup-${order.orderNumber}`} type="time" value={etaVal} onChange={(e) => setEtaVal(e.target.value)} className="mt-1.5" data-testid={`eta-input-${order.orderNumber}`} />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEtaOpen(false)}>Annuleren</Button>
+            <Button onClick={() => { setEtaOpen(false); if (etaVal) onEta(order.id, etaVal); }}
+              className="bg-emerald-600 hover:bg-emerald-700" data-testid={`eta-save-${order.orderNumber}`}>Opslaan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

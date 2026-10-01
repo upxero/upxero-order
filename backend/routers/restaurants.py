@@ -86,6 +86,7 @@ async def update_settings(payload: SettingsReq, user: dict = Depends(admin_only)
         {"$set": {"orderingEnabled": payload.orderingEnabled,
                   "pickupEnabled": payload.pickupEnabled,
                   "orderEmailsEnabled": payload.orderEmailsEnabled,
+                  "customerEmailsEnabled": payload.customerEmailsEnabled,
                   "updatedAt": now_iso()}},
     )
     r = await db.restaurants.find_one({"_id": rid})

@@ -1,4 +1,5 @@
 import hashlib
+import secrets
 from datetime import datetime, timezone
 
 from bson import ObjectId
@@ -10,7 +11,7 @@ from models import AcceptInviteReq, PublicOrderReq, QuoteReq
 from security import (create_access_token, create_refresh_token, hash_password,
                       set_auth_cookies)
 from services.distance import geocode, haversine_km
-from services.email import send_new_order_email
+from services.email import send_new_order_email, send_order_received_customer_email
 from services.notifications import notify_new_order
 from utils import next_order_number, now_iso, oid, serialize
 
@@ -252,6 +253,7 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     total = round(subtotal + delivery_fee, 2)
     order_number = await next_order_number(db, rid)
     ts = now_iso()
+    status_token = secrets.token_urlsafe(24)
     order = {
         "restaurantId": rid,
         "orderNumber": order_number,
@@ -266,6 +268,8 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
         "notes": (payload.notes or "").strip(),
         "total": total,
         "status": "new",
+        "estimatedTime": None,
+        "statusToken": status_token,
         "paymentMethod": "on_pickup_or_delivery",
         "createdAt": ts,
         "updatedAt": ts,
@@ -285,7 +289,51 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     await notify_new_order(rid, order_number)
     if r.get("orderEmailsEnabled", True) and r.get("email"):
         background_tasks.add_task(send_new_order_email, r["email"], r["name"], serialize(order))
-    return serialize(order)
+    cust_email = (payload.customer.email or "").strip()
+    if cust_email and r.get("customerEmailsEnabled", True):
+        background_tasks.add_task(send_order_received_customer_email, cust_email, r["name"], serialize(order), status_token)
+    result = serialize(order)
+    result.pop("statusToken", None)
+    result["statusToken"] = status_token
+    return result
+
+
+def _public_order_view(order: dict, restaurant: dict) -> dict:
+    """Minimal, safe projection for the customer status page — no internal ids/tokens."""
+    items = [{
+        "productName": it.get("productName"),
+        "quantity": it.get("quantity"),
+        "selectedOptions": [{"optionName": o.get("optionName")} for o in it.get("selectedOptions", [])],
+        "lineTotal": it.get("lineTotal"),
+    } for it in order.get("items", [])]
+    da = order.get("deliveryAddress") or None
+    addr = None
+    if da:
+        addr = {k: da.get(k) for k in ("street", "houseNumber", "postalCode", "city", "extra")}
+    return {
+        "orderNumber": order.get("orderNumber"),
+        "restaurantName": restaurant["name"] if restaurant else "",
+        "orderType": order.get("orderType"),
+        "status": order.get("status"),
+        "estimatedTime": order.get("estimatedTime"),
+        "items": items,
+        "subtotal": order.get("subtotal"),
+        "deliveryFee": order.get("deliveryFee"),
+        "total": order.get("total"),
+        "deliveryAddress": addr,
+        "notes": order.get("notes"),
+        "createdAt": order.get("createdAt"),
+        "updatedAt": order.get("updatedAt"),
+    }
+
+
+@router.get("/order-status/{token}")
+async def order_status(token: str):
+    order = await db.orders.find_one({"statusToken": token})
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestelling niet gevonden")
+    r = await db.restaurants.find_one({"_id": ObjectId(order["restaurantId"])})
+    return _public_order_view(order, r)
 
 
 @router.get("/orders/{order_id}")
@@ -295,6 +343,7 @@ async def public_order_confirmation(order_id: str):
         raise HTTPException(status_code=404, detail="Bestelling niet gevonden")
     r = await db.restaurants.find_one({"_id": ObjectId(order["restaurantId"])})
     data = serialize(order)
+    data.pop("statusToken", None)
     data["restaurantName"] = r["name"] if r else ""
     data["restaurantSlug"] = r["slug"] if r else ""
     return data

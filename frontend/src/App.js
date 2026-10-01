@@ -22,6 +22,7 @@ import Staff from "./pages/dashboard/Staff";
 import AdminRestaurants from "./pages/dashboard/AdminRestaurants";
 import OrderPage from "./pages/order/OrderPage";
 import OrderConfirmation from "./pages/order/OrderConfirmation";
+import OrderStatus from "./pages/order/OrderStatus";
 
 function App() {
   return (
@@ -36,6 +37,7 @@ function App() {
           <Route path="/reset-wachtwoord" element={<ResetPassword />} />
           <Route path="/staff-uitnodiging" element={<StaffInvitation />} />
           <Route path="/order/:slug" element={<OrderPage />} />
+          <Route path="/order-status/:token" element={<OrderStatus />} />
           <Route path="/order/:slug/bevestiging/:orderId" element={<OrderConfirmation />} />
 
           <Route

@@ -222,3 +222,93 @@ async def send_new_order_email(to_email: str, restaurant_name: str, order: dict)
         f'</td></tr></table>'
     )
     return await _send(to_email, f"Nieuwe bestelling #{order.get('orderNumber')} — {restaurant_name}", html)
+
+
+def _status_link(token: str):
+    base = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    return base, (f"{base}/order-status/{token}" if base.startswith("https://") else "")
+
+
+def _eta_label(order: dict) -> str:
+    return "Verwachte bezorgtijd" if order.get("orderType") == "delivery" else "Verwachte afhaaltijd"
+
+
+def _customer_order_html(restaurant_name: str, order: dict, link: str, heading: str, intro: str) -> str:
+    brand = escape(EMAIL_FROM_NAME)
+    resto = escape(restaurant_name or brand)
+    otype = "Bezorgen" if order.get("orderType") == "delivery" else "Afhalen"
+    rows = ""
+    for it in order.get("items", []):
+        opts = ", ".join(escape(o.get("optionName", "")) for o in it.get("selectedOptions", []))
+        opt_html = f'<div style="font-size:12px;color:#888">{opts}</div>' if opts else ""
+        rows += (f'<tr><td style="padding:6px 0;border-bottom:1px solid #eee"><strong>{it.get("quantity")}×</strong> '
+                 f'{escape(it.get("productName",""))}{opt_html}</td>'
+                 f'<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">{_eur(it.get("lineTotal"))}</td></tr>')
+    eta = ""
+    if order.get("estimatedTime"):
+        eta = f'<p style="margin:12px 0 0;font-size:16px"><strong>{_eta_label(order)}: {escape(str(order["estimatedTime"]))}</strong></p>'
+    delivery_row = (f'<tr><td style="padding:2px 0;color:#555">Bezorgkosten</td>'
+                    f'<td style="padding:2px 0;text-align:right">{_eur(order.get("deliveryFee"))}</td></tr>') if order.get("orderType") == "delivery" else ""
+    button = (f'<p style="margin:24px 0"><a href="{escape(link)}" style="background:#059669;color:#fff;'
+              f'padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Bekijk bestelling</a></p>') if link else ""
+    return (
+        f'<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#0f172a">'
+        f'<h2 style="margin:0 0 4px">{escape(heading)}</h2>'
+        f'<p style="margin:0 0 12px;color:#555">{resto} · {otype} · Bestelling #{escape(str(order.get("orderNumber")))}</p>'
+        f'<p style="margin:0">{escape(intro)}</p>{eta}'
+        f'<table width="100%" style="margin-top:16px;border-collapse:collapse">{rows}</table>'
+        f'<table width="100%" style="margin-top:12px">'
+        f'<tr><td style="padding:2px 0;color:#555">Subtotaal</td><td style="padding:2px 0;text-align:right">{_eur(order.get("subtotal"))}</td></tr>'
+        f'{delivery_row}'
+        f'<tr><td style="padding:6px 0;font-weight:700;border-top:1px solid #eee">Totaal</td>'
+        f'<td style="padding:6px 0;text-align:right;font-weight:700;border-top:1px solid #eee">{_eur(order.get("total"))}</td></tr>'
+        f'</table>{button}'
+        f'<p style="font-size:12px;color:#888;margin-top:24px">Verzonden door {brand}. We vragen nooit je wachtwoord per e-mail.</p>'
+        f'</td></tr></table>'
+    )
+
+
+async def send_order_received_customer_email(to_email: str, restaurant_name: str, order: dict, token: str) -> bool:
+    base, link = _status_link(token)
+    if not _configured(base):
+        return False
+    html = _customer_order_html(
+        restaurant_name, order, link, "Bestelling ontvangen",
+        "We hebben je bestelling ontvangen. Het restaurant moet deze nog bevestigen — je ontvangt een e-mail zodra dat gebeurt.")
+    return await _send(to_email, f"Bestelling #{order.get('orderNumber')} ontvangen", html)
+
+
+_STATUS_COPY = {
+    "accepted": ("Je bestelling is bevestigd", "Goed nieuws! Het restaurant heeft je bestelling bevestigd."),
+    "preparing": ("Je bestelling wordt bereid", "Het restaurant is met je bestelling bezig."),
+    "ready_pickup": ("Je bestelling is klaar om af te halen", "Je bestelling staat klaar om af te halen."),
+    "ready_delivery": ("Je bestelling is onderweg", "Je bestelling is onderweg naar je adres."),
+    "completed": ("Je bestelling is voltooid", "Bedankt voor je bestelling!"),
+    "cancelled": ("Je bestelling is geannuleerd", "Je bestelling is geannuleerd. Neem contact op met het restaurant bij vragen."),
+}
+
+
+async def send_order_status_customer_email(to_email: str, restaurant_name: str, order: dict, token: str) -> bool:
+    base, link = _status_link(token)
+    if not _configured(base):
+        return False
+    status = order.get("status")
+    key = status
+    if status == "ready":
+        key = "ready_delivery" if order.get("orderType") == "delivery" else "ready_pickup"
+    copy = _STATUS_COPY.get(key)
+    if not copy:
+        return False
+    heading, intro = copy
+    html = _customer_order_html(restaurant_name, order, link, heading, intro)
+    return await _send(to_email, f"Bestelling #{order.get('orderNumber')}: {heading}", html)
+
+
+async def send_order_eta_customer_email(to_email: str, restaurant_name: str, order: dict, token: str) -> bool:
+    base, link = _status_link(token)
+    if not _configured(base):
+        return False
+    html = _customer_order_html(
+        restaurant_name, order, link, "Verwachte tijd aangepast",
+        "Het restaurant heeft de verwachte tijd van je bestelling aangepast.")
+    return await _send(to_email, f"Bestelling #{order.get('orderNumber')}: verwachte tijd aangepast", html)

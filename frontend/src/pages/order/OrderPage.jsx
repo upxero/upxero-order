@@ -183,7 +183,7 @@ export default function OrderPage() {
       {checkout && (
         <Checkout slug={slug} restaurant={restaurant} cart={cart} subtotal={subtotal}
           onBack={() => setCheckout(false)}
-          onSuccess={(orderId) => { setCart([]); localStorage.removeItem(`upxero-cart-${slug}`); navigate(`/order/${slug}/bevestiging/${orderId}`); }}
+          onSuccess={(order) => { setCart([]); localStorage.removeItem(`upxero-cart-${slug}`); navigate(order.statusToken ? `/order-status/${order.statusToken}` : `/order/${slug}/bevestiging/${order.id}`); }}
           idemRef={idemRef} />
       )}
     </div>
@@ -355,7 +355,7 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
         notes, idempotencyKey: idemRef.current,
       });
       toast.success("Bestelling geplaatst!");
-      onSuccess(data.id);
+      onSuccess(data);
     } catch (e) {
       idemRef.current = null;
       toast.error(apiError(e));
@@ -389,7 +389,8 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
           <h2 className="font-heading font-semibold text-slate-900">Jouw gegevens</h2>
           <div><Label>Naam</Label><Input value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className="mt-1.5" data-testid="checkout-name" /></div>
           <div><Label>Telefoon</Label><Input value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="mt-1.5" data-testid="checkout-phone" /></div>
-          <div><Label>E-mail (optioneel)</Label><Input type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="mt-1.5" data-testid="checkout-email" /></div>
+          <div><Label>E-mail (optioneel)</Label><Input type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="mt-1.5" data-testid="checkout-email" />
+            <p className="mt-1 text-xs text-slate-400">We gebruiken je e-mailadres om je bestelbevestiging en statusupdates te sturen.</p></div>
         </div>
 
         {/* delivery address */}

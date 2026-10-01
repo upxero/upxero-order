@@ -153,6 +153,7 @@ class SettingsReq(BaseModel):
     orderingEnabled: bool
     pickupEnabled: bool
     orderEmailsEnabled: bool = True
+    customerEmailsEnabled: bool = True
 
 
 # ---------- Public order ----------
@@ -214,6 +215,11 @@ class QuoteReq(BaseModel):
 
 class StatusReq(BaseModel):
     status: str
+    estimatedTime: Optional[str] = None
+
+
+class EtaReq(BaseModel):
+    estimatedTime: str
 
 
 class AdminRestaurantReq(BaseModel):
