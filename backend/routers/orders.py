@@ -13,8 +13,10 @@ from utils import derive_status_token, now_iso, oid, serialize
 router = APIRouter(prefix="/orders", tags=["orders"])
 
 any_staff = require_roles("restaurant_admin", "restaurant_staff")
+admin_only = require_roles("restaurant_admin")
 
 STATUSES = ["new", "accepted", "preparing", "ready", "completed", "cancelled"]
+DELETABLE = {"completed", "cancelled"}
 TRANSITIONS = {
     "new": ["accepted", "cancelled"],
     "accepted": ["preparing", "cancelled"],
@@ -134,3 +136,24 @@ async def update_eta(order_id: str, payload: EtaReq, background_tasks: Backgroun
         restaurant = await db.restaurants.find_one({"_id": restaurant_id_of(user)})
         await _notify_customer(background_tasks, updated, restaurant, kind="eta")
     return _clean(updated)
+
+
+@router.delete("/{order_id}")
+async def delete_order(order_id: str, user: dict = Depends(admin_only)):
+    """Permanently delete a finished order (admin-only, tenant-scoped).
+
+    Only completed/cancelled orders are removable; active orders are protected.
+    Order numbers come from an $inc counter, so deletion never reuses/resets them.
+    After deletion the customer status link no longer resolves (order is gone).
+    """
+    rid = str(restaurant_id_of(user))
+    order = await db.orders.find_one({"_id": oid(order_id), "restaurantId": rid})
+    if not order:
+        raise HTTPException(status_code=404, detail="Bestelling niet gevonden")
+    if order.get("status") not in DELETABLE:
+        raise HTTPException(
+            status_code=400,
+            detail="Alleen afgeronde of geannuleerde bestellingen kunnen worden verwijderd.",
+        )
+    await db.orders.delete_one({"_id": oid(order_id), "restaurantId": rid})
+    return {"message": "Bestelling verwijderd"}

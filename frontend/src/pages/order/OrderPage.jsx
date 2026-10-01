@@ -89,7 +89,7 @@ export default function OrderPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-slate-900/50" />
         <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6">
           <div className="flex items-center justify-between">
-            <span className="rounded-lg bg-white/10 px-1 py-0.5 backdrop-blur"><Logo /></span>
+            <span className="rounded-lg bg-white/10 px-1 py-0.5 backdrop-blur"><Logo src={restaurant.logo} alt={restaurant.name} /></span>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${restaurant.isOpen ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`} data-testid="restaurant-open-status">
               {restaurant.isOpen ? "Open" : "Gesloten"}
             </span>

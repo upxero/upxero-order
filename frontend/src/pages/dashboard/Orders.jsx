@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Phone, MapPin, StickyNote, ShoppingBag, Truck, RefreshCw, Clock, Pencil, Bell, BellRing, Check } from "lucide-react";
+import { Loader2, Phone, MapPin, StickyNote, ShoppingBag, Truck, RefreshCw, Clock, Pencil, Bell, BellRing, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { euro, formatTime } from "../../lib/format";
 import { STATUS_LABELS, STATUS_STYLES } from "../../lib/constants";
+import { useAuth } from "../../context/AuthContext";
 import { EmptyState } from "../../components/EmptyState";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -11,6 +12,10 @@ import { Label } from "../../components/ui/label";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "../../components/ui/dialog";
+import {
+  AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogCancel, AlertDialogAction,
+} from "../../components/ui/alert-dialog";
 
 const FILTERS = [
   { key: "actief", label: "Actief", statuses: ["new", "accepted", "preparing", "ready"] },
@@ -57,6 +62,8 @@ function nextAction(order) {
 }
 
 export default function Orders() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "restaurant_admin";
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState("actief");
   const [busy, setBusy] = useState(null);
@@ -227,6 +234,15 @@ export default function Orders() {
     } catch (e) { toast.error(apiError(e)); } finally { setBusy(null); }
   };
 
+  const deleteOrder = async (id) => {
+    setBusy(id + "delete");
+    try {
+      await api.delete(`/orders/${id}`);
+      toast.success("Bestelling verwijderd");
+      await load();
+    } catch (e) { toast.error(apiError(e)); } finally { setBusy(null); }
+  };
+
   return (
     <div className="space-y-6" data-testid="orders-page">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -267,7 +283,7 @@ export default function Orders() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((o) => (
-            <OrderCard key={o.id} order={o} onStatus={changeStatus} onEta={updateEta} busy={busy} />
+            <OrderCard key={o.id} order={o} onStatus={changeStatus} onEta={updateEta} onDelete={deleteOrder} isAdmin={isAdmin} busy={busy} />
           ))}
         </div>
       )}
@@ -275,15 +291,17 @@ export default function Orders() {
   );
 }
 
-function OrderCard({ order, onStatus, onEta, busy }) {
+function OrderCard({ order, onStatus, onEta, onDelete, isAdmin, busy }) {
   const next = nextAction(order);
   const canCancel = !["completed", "cancelled"].includes(order.status);
+  const canDelete = isAdmin && ["completed", "cancelled"].includes(order.status);
   const etaEditable = ["accepted", "preparing", "ready"].includes(order.status);
   const etaLabel = order.orderType === "delivery" ? "Verwachte bezorgtijd" : "Verwachte bereidingstijd";
   const [acceptOpen, setAcceptOpen] = useState(false);
   const [acceptMins, setAcceptMins] = useState(null);
   const [etaOpen, setEtaOpen] = useState(false);
   const [etaMins, setEtaMins] = useState(order.estimatedMinutes || null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   return (
     <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-testid={`order-card-${order.orderNumber}`}>
@@ -376,6 +394,13 @@ function OrderCard({ order, onStatus, onEta, busy }) {
             Annuleren
           </Button>
         )}
+        {canDelete && (
+          <Button variant="outline" onClick={() => setDeleteOpen(true)} disabled={busy === order.id + "delete"}
+            className="border-slate-300 text-rose-600 hover:bg-rose-50 hover:text-rose-700" data-testid={`order-delete-${order.orderNumber}`}>
+            {busy === order.id + "delete" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
+            Verwijderen
+          </Button>
+        )}
       </div>
 
       {/* Accept + ETA dialog */}
@@ -412,6 +437,25 @@ function OrderCard({ order, onStatus, onEta, busy }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete confirmation */}
+      <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <AlertDialogContent data-testid={`delete-dialog-${order.orderNumber}`}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Bestelling #{order.orderNumber} verwijderen?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deze bestelling wordt permanent verwijderd en verdwijnt uit het overzicht. De bestelstatuslink van de klant werkt daarna niet meer. Deze actie kan niet ongedaan worden gemaakt.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid={`delete-cancel-${order.orderNumber}`}>Annuleren</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { setDeleteOpen(false); onDelete(order.id); }}
+              className="bg-rose-600 hover:bg-rose-700" data-testid={`delete-confirm-${order.orderNumber}`}>
+              Verwijderen
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
