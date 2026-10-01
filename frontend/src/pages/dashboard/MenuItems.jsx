@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
-import { UtensilsCrossed, Plus, Pencil, Trash2, Loader2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { UtensilsCrossed, Plus, Pencil, Trash2, Loader2, X, Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { euro } from "../../lib/format";
+import { useAuth } from "../../context/AuthContext";
+import { resolveFileUrl, menuItemImageUrl } from "../../lib/files";
 import { EmptyState } from "../../components/EmptyState";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -16,15 +18,20 @@ import {
 const emptyItem = {
   categoryId: "", name: "", description: "", price: "", image: "",
   sortOrder: 0, isAvailable: true, optionGroups: [],
+  imageFile: null, imageFileId: "",
 };
+const IMG_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export default function MenuItems() {
+  const { restaurant } = useAuth();
+  const slug = restaurant?.slug;
   const [items, setItems] = useState(null);
   const [cats, setCats] = useState([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyItem);
   const [saving, setSaving] = useState(false);
+  const imgRef = useRef();
 
   const load = async () => {
     const [i, c] = await Promise.all([api.get("/menu/items"), api.get("/menu/categories")]);
@@ -33,6 +40,7 @@ export default function MenuItems() {
   useEffect(() => { load().catch(() => setItems([])); }, []);
 
   const catName = (id) => cats.find((c) => c.id === id)?.name || "—";
+  const listImg = (it) => it.imageFileId ? menuItemImageUrl(slug, it.id, it.imageFileId) : resolveFileUrl(it.image);
 
   const openNew = () => {
     if (cats.length === 0) { toast.error("Maak eerst een categorie aan."); return; }
@@ -44,20 +52,46 @@ export default function MenuItems() {
     setEditing(it);
     setForm({ categoryId: it.categoryId, name: it.name, description: it.description || "", price: it.price,
       image: it.image || "", sortOrder: it.sortOrder, isAvailable: it.isAvailable,
+      imageFile: null, imageFileId: it.imageFileId || "",
       optionGroups: JSON.parse(JSON.stringify(it.optionGroups || [])) });
     setOpen(true);
   };
+
+  const onPickImage = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!IMG_TYPES.includes(file.type)) { toast.error("Alleen JPG, PNG of WebP."); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Afbeelding is te groot (max 5 MB)."); return; }
+    setForm((f) => ({ ...f, imageFile: file }));
+  };
+
+  const removeImage = async () => {
+    if (editing && form.imageFileId) {
+      try { await api.delete(`/menu/items/${editing.id}/image`); } catch (e) { toast.error(apiError(e)); return; }
+    }
+    setForm((f) => ({ ...f, imageFile: null, imageFileId: "" }));
+  };
+
+  const previewSrc = form.imageFile ? URL.createObjectURL(form.imageFile)
+    : (form.imageFileId && editing ? menuItemImageUrl(slug, editing.id, form.imageFileId) : resolveFileUrl(form.image));
 
   const save = async () => {
     setSaving(true);
     try {
       const payload = {
-        ...form,
-        price: parseFloat(form.price) || 0,
+        categoryId: form.categoryId, name: form.name, description: form.description,
+        price: parseFloat(form.price) || 0, image: form.image,
+        sortOrder: form.sortOrder, isAvailable: form.isAvailable,
         optionGroups: form.optionGroups.map((g) => ({ ...g, options: g.options.map((o) => ({ ...o, price: parseFloat(o.price) || 0 })) })),
       };
+      let itemId = editing?.id;
       if (editing) await api.put(`/menu/items/${editing.id}`, payload);
-      else await api.post("/menu/items", payload);
+      else { const { data } = await api.post("/menu/items", payload); itemId = data.id; }
+      if (form.imageFile && itemId) {
+        const fd = new FormData(); fd.append("file", form.imageFile);
+        await api.post(`/menu/items/${itemId}/image`, fd);
+      }
       toast.success("Product opgeslagen");
       setOpen(false);
       await load();
@@ -77,7 +111,6 @@ export default function MenuItems() {
     catch (e) { toast.error(apiError(e)); }
   };
 
-  // option group editing helpers
   const addGroup = () => setForm((f) => ({ ...f, optionGroups: [...f.optionGroups, { name: "", required: false, multiple: false, options: [{ name: "", price: "" }] }] }));
   const updGroup = (gi, patch) => setForm((f) => { const g = [...f.optionGroups]; g[gi] = { ...g[gi], ...patch }; return { ...f, optionGroups: g }; });
   const removeGroup = (gi) => setForm((f) => ({ ...f, optionGroups: f.optionGroups.filter((_, i) => i !== gi) }));
@@ -104,10 +137,12 @@ export default function MenuItems() {
           action={<Button onClick={openNew} className="bg-emerald-600 hover:bg-emerald-700" data-testid="menu-add-empty">Nieuw product</Button>} testid="menu-empty" />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {items.map((it) => (
+          {items.map((it) => {
+            const img = listImg(it);
+            return (
             <div key={it.id} className="flex gap-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-testid={`menu-item-${it.id}`}>
-              {it.image ? (
-                <img src={it.image} alt={it.name} className="h-20 w-20 shrink-0 rounded-lg object-cover" />
+              {img ? (
+                <img src={img} alt={it.name} className="h-20 w-20 shrink-0 rounded-lg object-cover" data-testid={`menu-item-img-${it.id}`} />
               ) : (
                 <div className="grid h-20 w-20 shrink-0 place-items-center rounded-lg bg-slate-100 text-slate-300"><UtensilsCrossed className="h-6 w-6" /></div>
               )}
@@ -132,7 +167,7 @@ export default function MenuItems() {
                 </div>
               </div>
             </div>
-          ))}
+          );})}
         </div>
       )}
 
@@ -167,6 +202,28 @@ export default function MenuItems() {
                 <Input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="https://..." className="mt-1.5" />
               </div>
             </div>
+
+            <div>
+              <Label>Afbeelding uploaden</Label>
+              <div className="mt-1.5 flex items-center gap-4">
+                <div className="grid h-20 w-20 shrink-0 place-items-center overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                  {previewSrc ? <img src={previewSrc} alt="Voorbeeld" className="h-full w-full object-cover" data-testid="menu-image-preview" /> : <ImageIcon className="h-6 w-6 text-slate-300" />}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <input ref={imgRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={onPickImage} data-testid="menu-image-input" />
+                  <Button type="button" variant="outline" size="sm" onClick={() => imgRef.current?.click()} className="border-slate-300" data-testid="menu-image-upload">
+                    <Upload className="mr-2 h-4 w-4" /> {(form.imageFile || form.imageFileId) ? "Vervangen" : "Uploaden"}
+                  </Button>
+                  {(form.imageFile || form.imageFileId) && (
+                    <Button type="button" variant="outline" size="sm" onClick={removeImage} className="border-slate-300 text-rose-600 hover:bg-rose-50" data-testid="menu-image-remove">
+                      <Trash2 className="mr-2 h-4 w-4" /> Verwijderen
+                    </Button>
+                  )}
+                </div>
+              </div>
+              <p className="mt-1.5 text-xs text-slate-400">JPG, PNG of WebP · max 5 MB.</p>
+            </div>
+
             <div className="flex items-center gap-2">
               <Switch checked={form.isAvailable} onCheckedChange={(v) => setForm({ ...form, isAvailable: v })} />
               <Label>Beschikbaar</Label>

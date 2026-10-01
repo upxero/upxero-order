@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { Logo } from "./Logo";
+import { logoUrl, resolveFileUrl } from "../lib/files";
 
 const NAV = [
   { to: "/dashboard", label: "Overzicht", icon: LayoutDashboard, end: true, id: "overzicht" },
@@ -34,6 +35,9 @@ export function DashboardLayout() {
   const { user, restaurant, logout } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const logoSrc = restaurant?.logoFileId
+    ? logoUrl(restaurant.slug, restaurant.logoFileId)
+    : resolveFileUrl(restaurant?.logo);
 
   const handleLogout = async () => {
     await logout();
@@ -98,7 +102,7 @@ export function DashboardLayout() {
     <div className="flex h-full flex-col bg-slate-900">
       <div className="flex items-center justify-between px-5 py-5">
         <div className="rounded-lg bg-white/5 px-1 py-0.5">
-          <Logo src={restaurant?.logo} alt={restaurant?.name} />
+          <Logo src={logoSrc} alt={restaurant?.name} />
         </div>
         <button className="lg:hidden text-slate-400" onClick={() => setOpen(false)} data-testid="sidebar-close">
           <X className="h-5 w-5" />
@@ -148,7 +152,7 @@ export function DashboardLayout() {
           <button onClick={() => setOpen(true)} data-testid="sidebar-open" className="text-slate-700">
             <MenuIcon className="h-6 w-6" />
           </button>
-          <Logo compact src={restaurant?.logo} alt={restaurant?.name} />
+          <Logo compact src={logoSrc} alt={restaurant?.name} />
           <span className="font-heading text-sm font-semibold text-slate-900">{restaurant?.name || "Upxero"}</span>
         </header>
         <main className="p-4 sm:p-6 lg:p-8">

@@ -8,6 +8,7 @@ import api, { apiError } from "../../lib/api";
 import { euro } from "../../lib/format";
 import { DAYS } from "../../lib/constants";
 import { Logo } from "../../components/Logo";
+import { resolveFileUrl } from "../../lib/files";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -89,7 +90,7 @@ export default function OrderPage() {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-slate-900/50" />
         <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6">
           <div className="flex items-center justify-between">
-            <span className="rounded-lg bg-white/10 px-1 py-0.5 backdrop-blur"><Logo src={restaurant.logo} alt={restaurant.name} /></span>
+            <span className="rounded-lg bg-white/10 px-1 py-0.5 backdrop-blur"><Logo src={resolveFileUrl(restaurant.logo)} alt={restaurant.name} /></span>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${restaurant.isOpen ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`} data-testid="restaurant-open-status">
               {restaurant.isOpen ? "Open" : "Gesloten"}
             </span>
@@ -153,7 +154,7 @@ export default function OrderPage() {
                   </div>
                   {item.image && (
                     <div className="relative">
-                      <img src={item.image} alt={item.name} className="h-24 w-24 shrink-0 rounded-lg object-cover" />
+                      <img src={resolveFileUrl(item.image)} alt={item.name} className="h-24 w-24 shrink-0 rounded-lg object-cover" />
                       {canOrder && item.isAvailable && <span className="absolute -bottom-1.5 -right-1.5 grid h-8 w-8 place-items-center rounded-full bg-emerald-600 text-white shadow"><Plus className="h-4 w-4" /></span>}
                     </div>
                   )}

@@ -1,11 +1,12 @@
 import uuid
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from db import db
 from models import AvailabilityReq, CategoryReq, MenuItemReq
 from security import require_roles, restaurant_id_of
+from services.storage import IMAGE_MIMES, delete_file, save_upload
 from utils import now_iso, oid, serialize
 
 router = APIRouter(prefix="/menu", tags=["menu"])
@@ -127,7 +128,46 @@ async def set_availability(item_id: str, payload: AvailabilityReq, user: dict = 
 @router.delete("/items/{item_id}")
 async def delete_item(item_id: str, user: dict = Depends(admin_only)):
     rid = str(restaurant_id_of(user))
-    result = await db.menu_items.delete_one({"_id": oid(item_id), "restaurantId": rid})
-    if result.deleted_count == 0:
+    item = await db.menu_items.find_one({"_id": oid(item_id), "restaurantId": rid})
+    if not item:
         raise HTTPException(status_code=404, detail="Product niet gevonden")
+    await db.menu_items.delete_one({"_id": oid(item_id), "restaurantId": rid})
+    if item.get("imageFileId"):
+        await delete_file(item["imageFileId"])
     return {"message": "Product verwijderd"}
+
+
+IMAGE_MAX = 5 * 1024 * 1024
+
+
+@router.post("/items/{item_id}/image")
+async def upload_item_image(item_id: str, file: UploadFile = File(...), user: dict = Depends(admin_only)):
+    rid = str(restaurant_id_of(user))
+    item = await db.menu_items.find_one({"_id": oid(item_id), "restaurantId": rid})
+    if not item:
+        raise HTTPException(status_code=404, detail="Product niet gevonden")
+    file_id, _ = await save_upload(file, rid, "menu_item", IMAGE_MIMES, IMAGE_MAX)
+    old = item.get("imageFileId")
+    await db.menu_items.update_one(
+        {"_id": oid(item_id), "restaurantId": rid},
+        {"$set": {"imageFileId": file_id, "updatedAt": now_iso()}},
+    )
+    if old and old != file_id:
+        await delete_file(old)
+    return {"message": "Afbeelding geüpload.", "imageFileId": file_id}
+
+
+@router.delete("/items/{item_id}/image")
+async def remove_item_image(item_id: str, user: dict = Depends(admin_only)):
+    rid = str(restaurant_id_of(user))
+    item = await db.menu_items.find_one({"_id": oid(item_id), "restaurantId": rid})
+    if not item:
+        raise HTTPException(status_code=404, detail="Product niet gevonden")
+    old = item.get("imageFileId")
+    await db.menu_items.update_one(
+        {"_id": oid(item_id), "restaurantId": rid},
+        {"$unset": {"imageFileId": ""}, "$set": {"updatedAt": now_iso()}},
+    )
+    if old:
+        await delete_file(old)
+    return {"message": "Afbeelding verwijderd."}

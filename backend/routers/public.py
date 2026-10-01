@@ -12,6 +12,7 @@ from security import (create_access_token, create_refresh_token, hash_password,
 from services.distance import geocode, haversine_km
 from services.email import send_new_order_email, send_order_received_customer_email
 from services.notifications import notify_new_order
+from services.storage import open_file
 from utils import (derive_status_token, hash_status_token, next_order_number,
                    now_iso, oid, serialize)
 
@@ -46,7 +47,10 @@ def _public_restaurant(r: dict) -> dict:
         "id": str(r["_id"]),
         "name": r["name"],
         "slug": r["slug"],
-        "logo": r.get("logo", ""),
+        "logo": (f"/api/public/restaurant/{r['slug']}/logo?v={r['logoFileId']}"
+                 if r.get("logoFileId") else r.get("logo", "")),
+        "menuFileUrl": (f"/api/public/restaurant/{r['slug']}/menu-file?v={r['menuFileId']}"
+                        if r.get("menuFileId") else ""),
         "description": r.get("description", ""),
         "phone": r.get("phone", ""),
         "city": r.get("city", ""),
@@ -77,8 +81,60 @@ async def get_public_restaurant(slug: str):
     return {
         "restaurant": _public_restaurant(r),
         "categories": [serialize(c) for c in cats],
-        "items": [serialize(i) for i in items],
+        "items": [_public_item(i, slug) for i in items],
     }
+
+
+def _public_item(it: dict, slug: str) -> dict:
+    """Serialize a menu item for public display and resolve its image URL.
+
+    GridFS-backed images become a restaurant-scoped backend route; legacy URL
+    images pass through unchanged. The internal file id is never exposed.
+    """
+    d = serialize(it)
+    fid = it.get("imageFileId")
+    if fid:
+        d["image"] = f"/api/public/restaurant/{slug}/menu-item/{d['id']}/image?v={fid}"
+    d.pop("imageFileId", None)
+    return d
+
+
+def _file_response(data: bytes, meta: dict, inline_name: str = None) -> Response:
+    headers = {"Cache-Control": "public, max-age=86400"}
+    if inline_name:
+        safe = inline_name.replace('"', "").replace("\n", "")[:120]
+        headers["Content-Disposition"] = f'inline; filename="{safe}"'
+    return Response(content=data, media_type=meta.get("contentType", "application/octet-stream"), headers=headers)
+
+
+@router.get("/restaurant/{slug}/logo")
+async def public_logo(slug: str):
+    r = await db.restaurants.find_one({"slug": slug})
+    if not r or not r.get("logoFileId"):
+        raise HTTPException(status_code=404, detail="Logo niet gevonden")
+    data, meta = await open_file(r["logoFileId"])
+    return _file_response(data, meta)
+
+
+@router.get("/restaurant/{slug}/menu-item/{item_id}/image")
+async def public_menu_item_image(slug: str, item_id: str):
+    r = await db.restaurants.find_one({"slug": slug})
+    if not r:
+        raise HTTPException(status_code=404, detail="Niet gevonden")
+    item = await db.menu_items.find_one({"_id": oid(item_id), "restaurantId": str(r["_id"])})
+    if not item or not item.get("imageFileId"):
+        raise HTTPException(status_code=404, detail="Afbeelding niet gevonden")
+    data, meta = await open_file(item["imageFileId"])
+    return _file_response(data, meta)
+
+
+@router.get("/restaurant/{slug}/menu-file")
+async def public_menu_file(slug: str):
+    r = await db.restaurants.find_one({"slug": slug})
+    if not r or not r.get("menuFileId"):
+        raise HTTPException(status_code=404, detail="Menukaart niet gevonden")
+    data, meta = await open_file(r["menuFileId"])
+    return _file_response(data, meta, inline_name=r.get("menuFileName") or "menukaart")
 
 
 def _resolve_items(order_items, menu_by_id):

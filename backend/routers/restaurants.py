@@ -3,7 +3,8 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
+                     UploadFile)
 
 from db import db
 from models import (DeliveryReq, InviteStaffReq, OpeningHoursReq, ProfileReq,
@@ -11,6 +12,8 @@ from models import (DeliveryReq, InviteStaffReq, OpeningHoursReq, ProfileReq,
 from security import require_roles, restaurant_id_of
 from services.distance import geocode
 from services.email import send_staff_invitation_email
+from services.storage import (IMAGE_MIMES, MENU_FILE_MIMES, delete_file,
+                              save_upload)
 from utils import now_iso, oid, serialize
 
 router = APIRouter(prefix="/restaurant", tags=["restaurant"])
@@ -44,6 +47,70 @@ async def update_profile(payload: ProfileReq, user: dict = Depends(admin_only)):
     await db.restaurants.update_one({"_id": rid}, {"$set": data})
     r = await db.restaurants.find_one({"_id": rid})
     return serialize(r)
+
+
+# ---------- Logo (restaurant_admin only, GridFS, 5 MB images) ----------
+
+LOGO_MAX = 5 * 1024 * 1024
+MENU_FILE_MAX = 10 * 1024 * 1024
+
+
+@router.post("/logo")
+async def upload_logo(file: UploadFile = File(...), user: dict = Depends(admin_only)):
+    rid = restaurant_id_of(user)
+    file_id, _ = await save_upload(file, rid, "logo", IMAGE_MIMES, LOGO_MAX)
+    r = await db.restaurants.find_one({"_id": rid})
+    old = r.get("logoFileId") if r else None
+    await db.restaurants.update_one({"_id": rid}, {"$set": {"logoFileId": file_id, "updatedAt": now_iso()}})
+    if old and old != file_id:
+        await delete_file(old)
+    return {"message": "Logo geüpload.", "logoFileId": file_id}
+
+
+@router.delete("/logo")
+async def remove_logo(user: dict = Depends(admin_only)):
+    rid = restaurant_id_of(user)
+    r = await db.restaurants.find_one({"_id": rid})
+    old = r.get("logoFileId") if r else None
+    await db.restaurants.update_one({"_id": rid}, {"$unset": {"logoFileId": ""}, "$set": {"updatedAt": now_iso()}})
+    if old:
+        await delete_file(old)
+    return {"message": "Logo verwijderd."}
+
+
+# ---------- Menu file (PDF/JPG/PNG, 10 MB) ----------
+
+
+@router.post("/menu-file")
+async def upload_menu_file(file: UploadFile = File(...), user: dict = Depends(admin_only)):
+    rid = restaurant_id_of(user)
+    file_id, meta = await save_upload(file, rid, "menu_file", MENU_FILE_MIMES, MENU_FILE_MAX)
+    r = await db.restaurants.find_one({"_id": rid})
+    old = r.get("menuFileId") if r else None
+    await db.restaurants.update_one({"_id": rid}, {"$set": {
+        "menuFileId": file_id,
+        "menuFileName": meta["originalFilename"] or "menukaart",
+        "menuFileType": meta["contentType"],
+        "updatedAt": now_iso(),
+    }})
+    if old and old != file_id:
+        await delete_file(old)
+    return {"message": "Menukaart geüpload.", "menuFileId": file_id,
+            "menuFileName": meta["originalFilename"], "menuFileType": meta["contentType"]}
+
+
+@router.delete("/menu-file")
+async def remove_menu_file(user: dict = Depends(admin_only)):
+    rid = restaurant_id_of(user)
+    r = await db.restaurants.find_one({"_id": rid})
+    old = r.get("menuFileId") if r else None
+    await db.restaurants.update_one(
+        {"_id": rid},
+        {"$unset": {"menuFileId": "", "menuFileName": "", "menuFileType": ""}, "$set": {"updatedAt": now_iso()}},
+    )
+    if old:
+        await delete_file(old)
+    return {"message": "Menukaart verwijderd."}
 
 
 @router.put("/delivery")
