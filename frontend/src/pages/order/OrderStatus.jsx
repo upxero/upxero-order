@@ -3,16 +3,17 @@ import { useParams } from "react-router-dom";
 import { Loader2, ShoppingBag, Truck, MapPin, Check, Clock, XCircle } from "lucide-react";
 import api from "../../lib/api";
 import { euro } from "../../lib/format";
+import { makeT } from "../../lib/i18n";
 import { Logo } from "../../components/Logo";
 
 const STEPS = ["new", "accepted", "preparing", "ready", "completed"];
 
-function stepLabel(key, orderType) {
-  if (key === "new") return "Wacht op bevestiging";
-  if (key === "accepted") return "Bevestigd";
-  if (key === "preparing") return "In bereiding";
-  if (key === "ready") return orderType === "delivery" ? "Onderweg" : "Klaar om af te halen";
-  return "Voltooid";
+function stepLabel(key, orderType, t) {
+  if (key === "new") return t("Wacht op bevestiging");
+  if (key === "accepted") return t("Bevestigd");
+  if (key === "preparing") return t("In bereiding");
+  if (key === "ready") return orderType === "delivery" ? t("Onderweg") : t("Klaar om af te halen");
+  return t("Voltooid");
 }
 
 export default function OrderStatus() {
@@ -28,17 +29,23 @@ export default function OrderStatus() {
   }, [token]);
 
   if (order === undefined) return <div className="grid min-h-screen place-items-center bg-slate-50"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
+
+  const t = makeT(order?.language || "en");
+
   if (order === null) return (
     <div className="grid min-h-screen place-items-center bg-slate-50 px-6 text-center">
-      <div><h1 className="font-heading text-xl font-bold text-slate-900">Bestelling niet gevonden</h1><p className="mt-2 text-sm text-slate-500">Deze link is ongeldig of verlopen.</p></div>
+      <div><h1 className="font-heading text-xl font-bold text-slate-900">{t("Bestelling niet gevonden")}</h1><p className="mt-2 text-sm text-slate-500">{t("Deze link is ongeldig of verlopen.")}</p></div>
     </div>
   );
 
   const cancelled = order.status === "cancelled";
   const currentIdx = STEPS.indexOf(order.status);
-  const etaLabel = order.orderType === "delivery" ? "Verwachte bezorgtijd" : "Verwachte bereidingstijd";
-  const etaValue = order.estimatedMinutes ? `ongeveer ${order.estimatedMinutes} minuten` : order.estimatedTime;
+  const etaLabel = order.orderType === "delivery" ? t("Verwachte bezorgtijd") : t("Verwachte bereidingstijd");
+  const etaValue = order.estimatedMinutes
+    ? (order.language === "nl" ? `ongeveer ${order.estimatedMinutes} minuten` : `about ${order.estimatedMinutes} minutes`)
+    : order.estimatedTime;
   const showEta = etaValue && ["accepted", "preparing", "ready"].includes(order.status);
+  const payWord = order.orderType === "delivery" ? t("levering") : t("afhalen");
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8" data-testid="order-status-page">
@@ -46,22 +53,22 @@ export default function OrderStatus() {
         <div className="flex justify-center"><Logo /></div>
         <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="text-center">
-            <p className="font-heading text-2xl font-bold text-slate-900" data-testid="status-order-number">Bestelling #{order.orderNumber}</p>
+            <p className="font-heading text-2xl font-bold text-slate-900" data-testid="status-order-number">{t("Bestelling")} #{order.orderNumber}</p>
             <p className="mt-1 text-sm text-slate-500">{order.restaurantName}</p>
             <div className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-slate-600">
-              {order.orderType === "delivery" ? <><Truck className="h-4 w-4" /> Bezorgen</> : <><ShoppingBag className="h-4 w-4" /> Afhalen</>}
+              {order.orderType === "delivery" ? <><Truck className="h-4 w-4" /> {t("Bezorgen")}</> : <><ShoppingBag className="h-4 w-4" /> {t("Afhalen")}</>}
             </div>
           </div>
 
           {cancelled ? (
             <div className="mt-6 flex items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 p-4 text-rose-800" data-testid="status-cancelled">
-              <XCircle className="h-5 w-5" /> <span className="font-semibold">Deze bestelling is geannuleerd.</span>
+              <XCircle className="h-5 w-5" /> <span className="font-semibold">{t("Deze bestelling is geannuleerd.")}</span>
             </div>
           ) : (
             <>
               {order.status === "new" && (
                 <p className="mt-5 rounded-lg bg-amber-50 p-3 text-center text-sm font-medium text-amber-800" data-testid="status-awaiting">
-                  Je bestelling is ontvangen en wacht op bevestiging van het restaurant.
+                  {t("Je bestelling is ontvangen en wacht op bevestiging van het restaurant.")}
                 </p>
               )}
               {showEta && (
@@ -80,7 +87,7 @@ export default function OrderStatus() {
                         {done ? <Check className="h-4 w-4" /> : active ? <Clock className="h-4 w-4" /> : <span className="text-xs">{i + 1}</span>}
                       </span>
                       <span className={`text-sm ${active ? "font-semibold text-slate-900" : done ? "text-slate-600" : "text-slate-400"}`}>
-                        {stepLabel(key, order.orderType)}
+                        {stepLabel(key, order.orderType, t)}
                       </span>
                     </li>
                   );
@@ -108,12 +115,12 @@ export default function OrderStatus() {
             ))}
           </ul>
           <div className="mt-4 space-y-1 border-t border-slate-100 pt-4 text-sm">
-            <div className="flex justify-between text-slate-500"><span>Subtotaal</span><span className="tabular">{euro(order.subtotal)}</span></div>
-            {order.orderType === "delivery" && <div className="flex justify-between text-slate-500"><span>Bezorgkosten</span><span className="tabular">{order.deliveryFee > 0 ? euro(order.deliveryFee) : "Gratis"}</span></div>}
-            <div className="flex justify-between text-base font-bold text-slate-900"><span>Totaal</span><span className="tabular">{euro(order.total)}</span></div>
+            <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{euro(order.subtotal)}</span></div>
+            {order.orderType === "delivery" && <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{order.deliveryFee > 0 ? euro(order.deliveryFee) : t("Gratis")}</span></div>}
+            <div className="flex justify-between text-base font-bold text-slate-900"><span>{t("Totaal")}</span><span className="tabular">{euro(order.total)}</span></div>
           </div>
-          {order.notes && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><span className="font-medium">Opmerking:</span> {order.notes}</p>}
-          <p className="mt-4 text-center text-xs text-slate-400">Deze pagina werkt automatisch bij. Betaling bij {order.orderType === "delivery" ? "levering" : "afhalen"}.</p>
+          {order.notes && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><span className="font-medium">{t("Opmerking:")}</span> {order.notes}</p>}
+          <p className="mt-4 text-center text-xs text-slate-400">{t("Deze pagina werkt automatisch bij. Betaling bij {pay}.", { pay: payWord })}</p>
         </div>
       </div>
     </div>

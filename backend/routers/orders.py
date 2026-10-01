@@ -46,8 +46,9 @@ async def _notify_customer(background_tasks, order, restaurant, kind="status"):
         return
     # Legacy orders carry a plaintext token; new orders derive it from the id.
     token = order.get("statusToken") or derive_status_token(str(order["_id"]))
+    lang = restaurant.get("defaultLanguage", "nl")
     fn = send_order_eta_customer_email if kind == "eta" else send_order_status_customer_email
-    background_tasks.add_task(fn, email, restaurant["name"], serialize(order), token)
+    background_tasks.add_task(fn, email, restaurant["name"], serialize(order), token, lang)
 
 
 @router.get("")

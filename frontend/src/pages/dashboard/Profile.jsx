@@ -190,11 +190,10 @@ export default function Profile() {
             </select>
           </div>
           <div>
-            <Label>Standaardtaal</Label>
-            <select value={form.defaultLanguage} onChange={upd("defaultLanguage")} className="mt-1.5 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm" data-testid="profile-language-select">
+            <Label>Taal / Language</Label>
+            <select value={form.defaultLanguage === "nl" ? "nl" : "en"} onChange={upd("defaultLanguage")} className="mt-1.5 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm" data-testid="profile-language-select">
+              <option value="en">English</option>
               <option value="nl">Nederlands</option>
-              <option value="fr">Frans</option>
-              <option value="en">Engels</option>
             </select>
           </div>
         </div>

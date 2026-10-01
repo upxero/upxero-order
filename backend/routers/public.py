@@ -352,11 +352,12 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     order["statusTokenHash"] = token_hash
     order["statusTokenExpiresAt"] = expires_at
     await notify_new_order(rid, order_number)
+    _lang = r.get("defaultLanguage", "nl")
     if r.get("orderEmailsEnabled", True) and r.get("email"):
-        background_tasks.add_task(send_new_order_email, r["email"], r["name"], serialize(order))
+        background_tasks.add_task(send_new_order_email, r["email"], r["name"], serialize(order), _lang)
     cust_email = (payload.customer.email or "").strip()
     if cust_email and r.get("customerEmailsEnabled", True):
-        background_tasks.add_task(send_order_received_customer_email, cust_email, r["name"], serialize(order), status_token)
+        background_tasks.add_task(send_order_received_customer_email, cust_email, r["name"], serialize(order), status_token, _lang)
     return _order_result_with_token(order)
 
 
@@ -388,6 +389,7 @@ def _public_order_view(order: dict, restaurant: dict) -> dict:
     return {
         "orderNumber": order.get("orderNumber"),
         "restaurantName": restaurant["name"] if restaurant else "",
+        "language": (restaurant.get("defaultLanguage", "nl") if restaurant else "en"),
         "orderType": order.get("orderType"),
         "status": order.get("status"),
         "estimatedMinutes": order.get("estimatedMinutes"),
@@ -439,6 +441,7 @@ async def public_order_confirmation(order_id: str):
     data.pop("statusTokenHash", None)
     data["restaurantName"] = r["name"] if r else ""
     data["restaurantSlug"] = r["slug"] if r else ""
+    data["language"] = (r.get("defaultLanguage", "nl") if r else "en")
     return data
 
 

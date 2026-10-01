@@ -7,6 +7,18 @@ export const STATUS_LABELS = {
   cancelled: "Geannuleerd",
 };
 
+export const STATUS_LABELS_EN = {
+  new: "New",
+  accepted: "Accepted",
+  preparing: "Preparing",
+  ready: "Ready",
+  completed: "Completed",
+  cancelled: "Cancelled",
+};
+
+export const statusLabel = (status, lang) =>
+  (lang === "nl" ? STATUS_LABELS : STATUS_LABELS_EN)[status] || status;
+
 export const STATUS_STYLES = {
   new: "bg-amber-100 text-amber-800 border-amber-200",
   accepted: "bg-blue-100 text-blue-800 border-blue-200",

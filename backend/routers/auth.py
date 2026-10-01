@@ -69,7 +69,7 @@ async def register(payload: RegisterReq, response: Response):
         "deliveryZones": [],
         "freeDeliveryEnabled": False,
         "freeDeliveryThreshold": 0,
-        "defaultLanguage": "nl",
+        "defaultLanguage": "en",
         "isActive": True,
         "createdAt": ts, "updatedAt": ts,
     }

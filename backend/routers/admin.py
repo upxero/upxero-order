@@ -52,7 +52,7 @@ async def create_restaurant(payload: AdminRestaurantReq, user: dict = Depends(su
         "city": "", "country": "BE", "latitude": None, "longitude": None,
         "openingHours": _default_hours(), "pickupEnabled": True, "deliveryEnabled": False,
         "orderingEnabled": False, "deliveryZones": [], "freeDeliveryEnabled": False,
-        "freeDeliveryThreshold": 0, "defaultLanguage": "nl", "isActive": True,
+        "freeDeliveryThreshold": 0, "defaultLanguage": "en", "isActive": True,
         "createdAt": ts, "updatedAt": ts,
     }
     res = await db.restaurants.insert_one(restaurant)

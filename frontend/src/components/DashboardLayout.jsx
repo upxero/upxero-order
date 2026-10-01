@@ -17,6 +17,8 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { I18nProvider } from "../context/I18nContext";
+import { makeT } from "../lib/i18n";
 import { Logo } from "./Logo";
 import { logoUrl, resolveFileUrl } from "../lib/files";
 
@@ -38,6 +40,8 @@ export function DashboardLayout() {
   const logoSrc = restaurant?.logoFileId
     ? logoUrl(restaurant.slug, restaurant.logoFileId)
     : resolveFileUrl(restaurant?.logo);
+  const lang = restaurant?.defaultLanguage || "en";
+  const t = makeT(lang);
 
   const handleLogout = async () => {
     await logout();
@@ -62,7 +66,7 @@ export function DashboardLayout() {
           }
         >
           <Icon className="h-4.5 w-4.5" size={18} />
-          {label}
+          {t(label)}
         </NavLink>
       ))}
       {user?.role === "restaurant_admin" && (
@@ -77,7 +81,7 @@ export function DashboardLayout() {
           }
         >
           <Users className="h-4.5 w-4.5" size={18} />
-          Personeel
+          {t("Personeel")}
         </NavLink>
       )}
       {user?.role === "super_admin" && (
@@ -92,7 +96,7 @@ export function DashboardLayout() {
           }
         >
           <Shield className="h-4.5 w-4.5" size={18} />
-          Platform
+          {t("Platform")}
         </NavLink>
       )}
     </nav>
@@ -110,7 +114,7 @@ export function DashboardLayout() {
       </div>
       <div className="mx-4 mb-4 rounded-lg border border-slate-800 bg-slate-800/50 px-3 py-2.5">
         <p className="truncate text-sm font-semibold text-slate-100">{restaurant?.name || "Upxero"}</p>
-        <p className="truncate text-xs text-slate-400">{user?.name} · {user?.role === "restaurant_admin" ? "Beheerder" : user?.role === "restaurant_staff" ? "Medewerker" : "Platform"}</p>
+        <p className="truncate text-xs text-slate-400">{user?.name} · {user?.role === "restaurant_admin" ? t("Beheerder") : user?.role === "restaurant_staff" ? t("Medewerker") : t("Platform")}</p>
       </div>
       <div className="flex-1 overflow-y-auto scroll-thin">{navItems}</div>
       {restaurant?.slug && (
@@ -121,7 +125,7 @@ export function DashboardLayout() {
           data-testid="sidebar-view-order-page"
           className="mx-3 mb-2 flex items-center gap-2 rounded-lg border border-slate-800 px-3 py-2.5 text-xs font-medium text-slate-300 hover:bg-slate-800"
         >
-          <ExternalLink className="h-4 w-4" /> Bekijk bestelpagina
+          <ExternalLink className="h-4 w-4" /> {t("Bekijk bestelpagina")}
         </a>
       )}
       <button
@@ -129,12 +133,13 @@ export function DashboardLayout() {
         data-testid="sidebar-logout"
         className="mx-3 mb-4 flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-400 transition-colors hover:bg-slate-800 hover:text-slate-100"
       >
-        <LogOut className="h-4.5 w-4.5" size={18} /> Uitloggen
+        <LogOut className="h-4.5 w-4.5" size={18} /> {t("Uitloggen")}
       </button>
     </div>
   );
 
   return (
+    <I18nProvider lang={lang}>
     <div className="min-h-screen bg-slate-50">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 lg:block">{sidebarInner}</aside>
@@ -160,5 +165,6 @@ export function DashboardLayout() {
         </main>
       </div>
     </div>
+    </I18nProvider>
   );
 }
