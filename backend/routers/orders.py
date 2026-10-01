@@ -1,4 +1,3 @@
-import re
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -9,7 +8,7 @@ from security import require_roles, restaurant_id_of
 from services.email import (send_order_eta_customer_email,
                             send_order_status_customer_email)
 from services.notifications import notify_status_change
-from utils import now_iso, oid, serialize
+from utils import derive_status_token, now_iso, oid, serialize
 
 router = APIRouter(prefix="/orders", tags=["orders"])
 
@@ -26,25 +25,27 @@ TRANSITIONS = {
 }
 CUSTOMER_NOTIFY = {"accepted", "preparing", "ready", "completed", "cancelled"}
 ETA_EDITABLE = {"accepted", "preparing", "ready"}
-_TIME_RE = re.compile(r"^([01]?\d|2[0-3]):[0-5]\d$")
 
 
-def _valid_eta(v) -> bool:
-    return bool(v) and bool(_TIME_RE.match(str(v).strip()))
+def _valid_minutes(v) -> bool:
+    return isinstance(v, int) and 1 <= v <= 600
 
 
 def _clean(order: dict) -> dict:
     d = serialize(order)
     d.pop("statusToken", None)
+    d.pop("statusTokenHash", None)
     return d
 
 
 async def _notify_customer(background_tasks, order, restaurant, kind="status"):
     email = ((order.get("customer") or {}).get("email") or "").strip()
-    if not (email and restaurant.get("customerEmailsEnabled", True) and order.get("statusToken")):
+    if not (email and restaurant.get("customerEmailsEnabled", True)):
         return
+    # Legacy orders carry a plaintext token; new orders derive it from the id.
+    token = order.get("statusToken") or derive_status_token(str(order["_id"]))
     fn = send_order_eta_customer_email if kind == "eta" else send_order_status_customer_email
-    background_tasks.add_task(fn, email, restaurant["name"], serialize(order), order["statusToken"])
+    background_tasks.add_task(fn, email, restaurant["name"], serialize(order), token)
 
 
 @router.get("")
@@ -104,10 +105,8 @@ async def update_status(order_id: str, payload: StatusReq, background_tasks: Bac
         raise HTTPException(status_code=400, detail="Deze statuswijziging is niet toegestaan")
 
     set_fields = {"status": payload.status, "updatedAt": now_iso()}
-    if payload.status == "accepted" and payload.estimatedTime:
-        if not _valid_eta(payload.estimatedTime):
-            raise HTTPException(status_code=400, detail="Ongeldige tijd. Gebruik UU:MM, bijv. 19:15.")
-        set_fields["estimatedTime"] = str(payload.estimatedTime).strip()
+    if payload.status == "accepted" and payload.estimatedMinutes is not None:
+        set_fields["estimatedMinutes"] = int(payload.estimatedMinutes)
 
     await db.orders.update_one({"_id": oid(order_id)}, {"$set": set_fields})
     await notify_status_change(rid, order.get("orderNumber"), payload.status)
@@ -122,16 +121,14 @@ async def update_status(order_id: str, payload: StatusReq, background_tasks: Bac
 async def update_eta(order_id: str, payload: EtaReq, background_tasks: BackgroundTasks,
                      user: dict = Depends(any_staff)):
     rid = str(restaurant_id_of(user))
-    if not _valid_eta(payload.estimatedTime):
-        raise HTTPException(status_code=400, detail="Ongeldige tijd. Gebruik UU:MM, bijv. 19:15.")
     order = await db.orders.find_one({"_id": oid(order_id), "restaurantId": rid})
     if not order:
         raise HTTPException(status_code=404, detail="Bestelling niet gevonden")
     if order.get("status") not in ETA_EDITABLE:
         raise HTTPException(status_code=400, detail="Tijd kan alleen worden aangepast voor actieve bestellingen.")
-    new_eta = str(payload.estimatedTime).strip()
-    changed = new_eta != (order.get("estimatedTime") or "")
-    await db.orders.update_one({"_id": oid(order_id)}, {"$set": {"estimatedTime": new_eta, "updatedAt": now_iso()}})
+    new_eta = int(payload.estimatedMinutes)
+    changed = new_eta != order.get("estimatedMinutes")
+    await db.orders.update_one({"_id": oid(order_id)}, {"$set": {"estimatedMinutes": new_eta, "updatedAt": now_iso()}})
     updated = await db.orders.find_one({"_id": oid(order_id)})
     if changed:
         restaurant = await db.restaurants.find_one({"_id": restaurant_id_of(user)})

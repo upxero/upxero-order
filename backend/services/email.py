@@ -230,7 +230,7 @@ def _status_link(token: str):
 
 
 def _eta_label(order: dict) -> str:
-    return "Verwachte bezorgtijd" if order.get("orderType") == "delivery" else "Verwachte afhaaltijd"
+    return "Verwachte bezorgtijd" if order.get("orderType") == "delivery" else "Verwachte bereidingstijd"
 
 
 def _customer_order_html(restaurant_name: str, order: dict, link: str, heading: str, intro: str) -> str:
@@ -245,12 +245,15 @@ def _customer_order_html(restaurant_name: str, order: dict, link: str, heading: 
                  f'{escape(it.get("productName",""))}{opt_html}</td>'
                  f'<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">{_eur(it.get("lineTotal"))}</td></tr>')
     eta = ""
-    if order.get("estimatedTime"):
+    mins = order.get("estimatedMinutes")
+    if mins:
+        eta = f'<p style="margin:12px 0 0;font-size:16px"><strong>{_eta_label(order)}: ongeveer {int(mins)} minuten</strong></p>'
+    elif order.get("estimatedTime"):
         eta = f'<p style="margin:12px 0 0;font-size:16px"><strong>{_eta_label(order)}: {escape(str(order["estimatedTime"]))}</strong></p>'
     delivery_row = (f'<tr><td style="padding:2px 0;color:#555">Bezorgkosten</td>'
                     f'<td style="padding:2px 0;text-align:right">{_eur(order.get("deliveryFee"))}</td></tr>') if order.get("orderType") == "delivery" else ""
     button = (f'<p style="margin:24px 0"><a href="{escape(link)}" style="background:#059669;color:#fff;'
-              f'padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Bekijk bestelling</a></p>') if link else ""
+              f'padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Bekijk je bestelling</a></p>') if link else ""
     return (
         f'<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#0f172a">'
         f'<h2 style="margin:0 0 4px">{escape(heading)}</h2>'
@@ -308,7 +311,9 @@ async def send_order_eta_customer_email(to_email: str, restaurant_name: str, ord
     base, link = _status_link(token)
     if not _configured(base):
         return False
-    html = _customer_order_html(
-        restaurant_name, order, link, "Verwachte tijd aangepast",
-        "Het restaurant heeft de verwachte tijd van je bestelling aangepast.")
+    mins = order.get("estimatedMinutes")
+    label = _eta_label(order).lower()
+    intro = (f"De {label} van je bestelling is gewijzigd naar ongeveer {int(mins)} minuten."
+             if mins else "Het restaurant heeft de verwachte tijd van je bestelling aangepast.")
+    html = _customer_order_html(restaurant_name, order, link, "Verwachte tijd aangepast", intro)
     return await _send(to_email, f"Bestelling #{order.get('orderNumber')}: verwachte tijd aangepast", html)

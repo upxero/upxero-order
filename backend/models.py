@@ -173,7 +173,7 @@ class OrderItemReq(BaseModel):
 class CustomerReq(BaseModel):
     name: str = Field(min_length=1, max_length=120)
     phone: str = Field(min_length=4, max_length=40)
-    email: Optional[str] = ""
+    email: EmailStr
 
 
 class DeliveryAddressReq(BaseModel):
@@ -215,11 +215,27 @@ class QuoteReq(BaseModel):
 
 class StatusReq(BaseModel):
     status: str
-    estimatedTime: Optional[str] = None
+    estimatedMinutes: Optional[int] = None
+
+    @field_validator("estimatedMinutes")
+    @classmethod
+    def valid_minutes(cls, v):
+        if v is None:
+            return v
+        if not (1 <= int(v) <= 600):
+            raise ValueError("Ongeldige tijd")
+        return int(v)
 
 
 class EtaReq(BaseModel):
-    estimatedTime: str
+    estimatedMinutes: int
+
+    @field_validator("estimatedMinutes")
+    @classmethod
+    def valid_minutes(cls, v):
+        if not (1 <= int(v) <= 600):
+            raise ValueError("Ongeldige tijd")
+        return int(v)
 
 
 class AdminRestaurantReq(BaseModel):

@@ -339,7 +339,8 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
   };
 
   const deliveryReady = orderType === "delivery" && address.street && address.houseNumber && address.postalCode && address.city;
-  const canSubmit = customer.name && customer.phone &&
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((customer.email || "").trim());
+  const canSubmit = customer.name && customer.phone && emailValid &&
     (orderType === "pickup" || (deliveryReady && quote?.available && !quote?.belowMinimum));
 
   const fee = orderType === "delivery" ? (quote?.deliveryFee ?? 0) : 0;
@@ -389,8 +390,8 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
           <h2 className="font-heading font-semibold text-slate-900">Jouw gegevens</h2>
           <div><Label>Naam</Label><Input value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className="mt-1.5" data-testid="checkout-name" /></div>
           <div><Label>Telefoon</Label><Input value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="mt-1.5" data-testid="checkout-phone" /></div>
-          <div><Label>E-mail (optioneel)</Label><Input type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="mt-1.5" data-testid="checkout-email" />
-            <p className="mt-1 text-xs text-slate-400">We gebruiken je e-mailadres om je bestelbevestiging en statusupdates te sturen.</p></div>
+          <div><Label>E-mail</Label><Input type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="mt-1.5" data-testid="checkout-email" />
+            <p className="mt-1 text-xs text-slate-400">We gebruiken je e-mailadres voor je bestelbevestiging en statusupdates.</p></div>
         </div>
 
         {/* delivery address */}

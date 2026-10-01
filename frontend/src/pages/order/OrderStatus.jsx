@@ -30,14 +30,15 @@ export default function OrderStatus() {
   if (order === undefined) return <div className="grid min-h-screen place-items-center bg-slate-50"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
   if (order === null) return (
     <div className="grid min-h-screen place-items-center bg-slate-50 px-6 text-center">
-      <div><h1 className="font-heading text-xl font-bold text-slate-900">Bestelling niet gevonden</h1><p className="mt-2 text-sm text-slate-500">Deze link is ongeldig.</p></div>
+      <div><h1 className="font-heading text-xl font-bold text-slate-900">Bestelling niet gevonden</h1><p className="mt-2 text-sm text-slate-500">Deze link is ongeldig of verlopen.</p></div>
     </div>
   );
 
   const cancelled = order.status === "cancelled";
   const currentIdx = STEPS.indexOf(order.status);
-  const etaLabel = order.orderType === "delivery" ? "Verwachte bezorgtijd" : "Verwachte afhaaltijd";
-  const showEta = order.estimatedTime && ["accepted", "preparing", "ready"].includes(order.status);
+  const etaLabel = order.orderType === "delivery" ? "Verwachte bezorgtijd" : "Verwachte bereidingstijd";
+  const etaValue = order.estimatedMinutes ? `ongeveer ${order.estimatedMinutes} minuten` : order.estimatedTime;
+  const showEta = etaValue && ["accepted", "preparing", "ready"].includes(order.status);
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8" data-testid="order-status-page">
@@ -66,7 +67,7 @@ export default function OrderStatus() {
               {showEta && (
                 <div className="mt-5 rounded-lg bg-emerald-50 p-4 text-center" data-testid="status-eta">
                   <p className="text-xs font-medium text-emerald-700">{etaLabel}</p>
-                  <p className="font-heading text-3xl font-bold text-emerald-700">{order.estimatedTime}</p>
+                  <p className="font-heading text-2xl font-bold text-emerald-700">{etaValue}</p>
                 </div>
               )}
               <ol className="mt-6 space-y-3" data-testid="status-timeline">

@@ -20,6 +20,32 @@ const FILTERS = [
   { key: "all", label: "Alles", statuses: null },
 ];
 
+const MINUTE_PRESETS = [10, 15, 20, 30, 45, 60, 90];
+
+function MinutesPicker({ value, onChange, testPrefix }) {
+  const isCustom = value != null && !MINUTE_PRESETS.includes(value);
+  return (
+    <div className="mt-1.5 space-y-2" data-testid={`minutes-picker-${testPrefix}`}>
+      <div className="flex flex-wrap gap-2">
+        {MINUTE_PRESETS.map((m) => (
+          <button key={m} type="button" onClick={() => onChange(m)}
+            data-testid={`minutes-${testPrefix}-${m}`}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${value === m ? "border-emerald-600 bg-emerald-600 text-white" : "border-slate-200 text-slate-600 hover:bg-slate-50"}`}>
+            {m} min
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center gap-2">
+        <Input type="number" min="1" max="600" placeholder="Aangepast"
+          value={isCustom ? value : ""}
+          onChange={(e) => onChange(e.target.value ? parseInt(e.target.value, 10) : null)}
+          className="w-32" data-testid={`minutes-${testPrefix}-custom`} />
+        <span className="text-sm text-slate-400">minuten</span>
+      </div>
+    </div>
+  );
+}
+
 // Next forward action per status; `ready` label depends on order type.
 function nextAction(order) {
   switch (order.status) {
@@ -53,19 +79,19 @@ export default function Orders() {
     return orders.filter((o) => current.statuses.includes(o.status));
   }, [orders, current]);
 
-  const changeStatus = async (id, status, estimatedTime) => {
+  const changeStatus = async (id, status, estimatedMinutes) => {
     setBusy(id + status);
     try {
-      await api.patch(`/orders/${id}/status`, estimatedTime ? { status, estimatedTime } : { status });
+      await api.patch(`/orders/${id}/status`, estimatedMinutes ? { status, estimatedMinutes } : { status });
       toast.success(`Bestelling → ${STATUS_LABELS[status]}`);
       await load();
     } catch (e) { toast.error(apiError(e)); } finally { setBusy(null); }
   };
 
-  const updateEta = async (id, estimatedTime) => {
+  const updateEta = async (id, estimatedMinutes) => {
     setBusy(id + "eta");
     try {
-      await api.patch(`/orders/${id}/eta`, { estimatedTime });
+      await api.patch(`/orders/${id}/eta`, { estimatedMinutes });
       toast.success("Verwachte tijd bijgewerkt");
       await load();
     } catch (e) { toast.error(apiError(e)); } finally { setBusy(null); }
@@ -111,11 +137,11 @@ function OrderCard({ order, onStatus, onEta, busy }) {
   const next = nextAction(order);
   const canCancel = !["completed", "cancelled"].includes(order.status);
   const etaEditable = ["accepted", "preparing", "ready"].includes(order.status);
-  const etaLabel = order.orderType === "delivery" ? "Verwachte bezorgtijd" : "Verwachte afhaaltijd";
+  const etaLabel = order.orderType === "delivery" ? "Verwachte bezorgtijd" : "Verwachte bereidingstijd";
   const [acceptOpen, setAcceptOpen] = useState(false);
-  const [acceptEta, setAcceptEta] = useState("");
+  const [acceptMins, setAcceptMins] = useState(null);
   const [etaOpen, setEtaOpen] = useState(false);
-  const [etaVal, setEtaVal] = useState(order.estimatedTime || "");
+  const [etaMins, setEtaMins] = useState(order.estimatedMinutes || null);
 
   return (
     <div className="flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm" data-testid={`order-card-${order.orderNumber}`}>
@@ -168,8 +194,8 @@ function OrderCard({ order, onStatus, onEta, busy }) {
 
       {etaEditable && (
         <div className="mt-3 flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-sm" data-testid={`order-eta-${order.orderNumber}`}>
-          <span className="flex items-center gap-1.5 text-slate-600"><Clock className="h-3.5 w-3.5" /> {etaLabel}: <strong className="text-slate-900">{order.estimatedTime || "—"}</strong></span>
-          <button onClick={() => { setEtaVal(order.estimatedTime || ""); setEtaOpen(true); }} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600" data-testid={`order-eta-edit-${order.orderNumber}`}>
+          <span className="flex items-center gap-1.5 text-slate-600"><Clock className="h-3.5 w-3.5" /> {etaLabel}: <strong className="text-slate-900">{order.estimatedMinutes ? `ongeveer ${order.estimatedMinutes} min` : (order.estimatedTime || "—")}</strong></span>
+          <button onClick={() => { setEtaMins(order.estimatedMinutes || null); setEtaOpen(true); }} className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-600" data-testid={`order-eta-edit-${order.orderNumber}`}>
             <Pencil className="h-3 w-3" /> Wijzigen
           </button>
         </div>
@@ -186,7 +212,7 @@ function OrderCard({ order, onStatus, onEta, busy }) {
       <div className="mt-4 flex flex-wrap gap-2">
         {order.status === "new" && (
           <>
-            <Button onClick={() => { setAcceptEta(""); setAcceptOpen(true); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]" data-testid={`order-accept-${order.orderNumber}`}>
+            <Button onClick={() => { setAcceptMins(null); setAcceptOpen(true); }} className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]" data-testid={`order-accept-${order.orderNumber}`}>
               Accepteren
             </Button>
             <Button variant="outline" onClick={() => onStatus(order.id, "cancelled")} disabled={busy === order.id + "cancelled"}
@@ -215,13 +241,13 @@ function OrderCard({ order, onStatus, onEta, busy }) {
         <DialogContent className="sm:max-w-sm" data-testid={`accept-dialog-${order.orderNumber}`}>
           <DialogHeader><DialogTitle>Bestelling #{order.orderNumber} accepteren</DialogTitle></DialogHeader>
           <div>
-            <Label htmlFor={`eta-${order.orderNumber}`}>{etaLabel} (optioneel)</Label>
-            <Input id={`eta-${order.orderNumber}`} type="time" value={acceptEta} onChange={(e) => setAcceptEta(e.target.value)} className="mt-1.5" data-testid={`accept-eta-input-${order.orderNumber}`} />
-            <p className="mt-1.5 text-xs text-slate-400">De klant ziet deze tijd op de statuspagina en ontvangt een e-mail.</p>
+            <Label>{etaLabel} (optioneel)</Label>
+            <MinutesPicker value={acceptMins} onChange={setAcceptMins} testPrefix={`accept-${order.orderNumber}`} />
+            <p className="mt-2 text-xs text-slate-400">De klant ziet deze tijd op de statuspagina en ontvangt een e-mail.</p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setAcceptOpen(false); onStatus(order.id, "accepted"); }} data-testid={`accept-skip-${order.orderNumber}`}>Zonder tijd</Button>
-            <Button onClick={() => { setAcceptOpen(false); onStatus(order.id, "accepted", acceptEta || undefined); }}
+            <Button onClick={() => { setAcceptOpen(false); onStatus(order.id, "accepted", acceptMins || undefined); }}
               className="bg-emerald-600 hover:bg-emerald-700" data-testid={`accept-confirm-${order.orderNumber}`}>Bevestigen</Button>
           </DialogFooter>
         </DialogContent>
@@ -232,12 +258,12 @@ function OrderCard({ order, onStatus, onEta, busy }) {
         <DialogContent className="sm:max-w-sm" data-testid={`eta-dialog-${order.orderNumber}`}>
           <DialogHeader><DialogTitle>{etaLabel} aanpassen</DialogTitle></DialogHeader>
           <div>
-            <Label htmlFor={`etaup-${order.orderNumber}`}>{etaLabel}</Label>
-            <Input id={`etaup-${order.orderNumber}`} type="time" value={etaVal} onChange={(e) => setEtaVal(e.target.value)} className="mt-1.5" data-testid={`eta-input-${order.orderNumber}`} />
+            <Label>{etaLabel}</Label>
+            <MinutesPicker value={etaMins} onChange={setEtaMins} testPrefix={`eta-${order.orderNumber}`} />
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEtaOpen(false)}>Annuleren</Button>
-            <Button onClick={() => { setEtaOpen(false); if (etaVal) onEta(order.id, etaVal); }}
+            <Button onClick={() => { setEtaOpen(false); if (etaMins) onEta(order.id, etaMins); }}
               className="bg-emerald-600 hover:bg-emerald-700" data-testid={`eta-save-${order.orderNumber}`}>Opslaan</Button>
           </DialogFooter>
         </DialogContent>

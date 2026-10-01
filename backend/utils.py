@@ -1,3 +1,7 @@
+import base64
+import hashlib
+import hmac
+import os
 import re
 from datetime import datetime, timezone
 
@@ -9,6 +13,21 @@ from pymongo import ReturnDocument
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def derive_status_token(order_id: str) -> str:
+    """Deterministic, unguessable customer status token derived from the order id.
+
+    Regenerable server-side from the order id + JWT secret, so only its hash
+    (hash_status_token) is persisted — the plaintext token is never stored.
+    """
+    secret = os.environ["JWT_SECRET"].encode()
+    digest = hmac.new(secret, f"order-status:{order_id}".encode(), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+
+
+def hash_status_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 def oid(value) -> ObjectId:

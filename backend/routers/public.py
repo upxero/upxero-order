@@ -1,6 +1,5 @@
 import hashlib
-import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
@@ -13,7 +12,8 @@ from security import (create_access_token, create_refresh_token, hash_password,
 from services.distance import geocode, haversine_km
 from services.email import send_new_order_email, send_order_received_customer_email
 from services.notifications import notify_new_order
-from utils import next_order_number, now_iso, oid, serialize
+from utils import (derive_status_token, hash_status_token, next_order_number,
+                   now_iso, oid, serialize)
 
 router = APIRouter(prefix="/public", tags=["public"])
 
@@ -195,7 +195,7 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     if payload.idempotencyKey:
         existing = await db.orders.find_one({"restaurantId": rid, "idempotencyKey": payload.idempotencyKey})
         if existing:
-            return serialize(existing)
+            return _order_result_with_token(existing)
 
     if not r.get("orderingEnabled"):
         raise HTTPException(status_code=409, detail="Online bestellen is momenteel niet beschikbaar.")
@@ -253,7 +253,6 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     total = round(subtotal + delivery_fee, 2)
     order_number = await next_order_number(db, rid)
     ts = now_iso()
-    status_token = secrets.token_urlsafe(24)
     order = {
         "restaurantId": rid,
         "orderNumber": order_number,
@@ -268,8 +267,7 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
         "notes": (payload.notes or "").strip(),
         "total": total,
         "status": "new",
-        "estimatedTime": None,
-        "statusToken": status_token,
+        "estimatedMinutes": None,
         "paymentMethod": "on_pickup_or_delivery",
         "createdAt": ts,
         "updatedAt": ts,
@@ -283,18 +281,39 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
         if payload.idempotencyKey:
             existing = await db.orders.find_one({"restaurantId": rid, "idempotencyKey": payload.idempotencyKey})
             if existing:
-                return serialize(existing)
+                return _order_result_with_token(existing)
         raise HTTPException(status_code=500, detail="De bestelling kon niet worden opgeslagen. Probeer het opnieuw.")
     order["_id"] = res.inserted_id
+    # Secure customer status token: HMAC-derived from the order id (stable and
+    # regenerable), only its SHA-256 hash is persisted. Expires after 30 days.
+    status_token = derive_status_token(str(res.inserted_id))
+    token_hash = hash_status_token(status_token)
+    expires_at = (datetime.now(timezone.utc) + timedelta(days=30)).isoformat()
+    await db.orders.update_one(
+        {"_id": res.inserted_id},
+        {"$set": {"statusTokenHash": token_hash, "statusTokenExpiresAt": expires_at}},
+    )
+    order["statusTokenHash"] = token_hash
+    order["statusTokenExpiresAt"] = expires_at
     await notify_new_order(rid, order_number)
     if r.get("orderEmailsEnabled", True) and r.get("email"):
         background_tasks.add_task(send_new_order_email, r["email"], r["name"], serialize(order))
     cust_email = (payload.customer.email or "").strip()
     if cust_email and r.get("customerEmailsEnabled", True):
         background_tasks.add_task(send_order_received_customer_email, cust_email, r["name"], serialize(order), status_token)
-    result = serialize(order)
+    return _order_result_with_token(order)
+
+
+def _order_result_with_token(order_doc: dict) -> dict:
+    """Serialize an order for the client and attach a usable status token.
+
+    New orders derive the token from their id; legacy orders fall back to any
+    stored plaintext token. The hash is never exposed.
+    """
+    result = serialize(order_doc)
+    result.pop("statusTokenHash", None)
     result.pop("statusToken", None)
-    result["statusToken"] = status_token
+    result["statusToken"] = order_doc.get("statusToken") or derive_status_token(str(order_doc["_id"]))
     return result
 
 
@@ -315,6 +334,7 @@ def _public_order_view(order: dict, restaurant: dict) -> dict:
         "restaurantName": restaurant["name"] if restaurant else "",
         "orderType": order.get("orderType"),
         "status": order.get("status"),
+        "estimatedMinutes": order.get("estimatedMinutes"),
         "estimatedTime": order.get("estimatedTime"),
         "items": items,
         "subtotal": order.get("subtotal"),
@@ -329,9 +349,25 @@ def _public_order_view(order: dict, restaurant: dict) -> dict:
 
 @router.get("/order-status/{token}")
 async def order_status(token: str):
-    order = await db.orders.find_one({"statusToken": token})
+    order = await db.orders.find_one({"statusTokenHash": hash_status_token(token)})
+    if not order:
+        # Legacy fallback: orders created before token hashing stored plaintext.
+        order = await db.orders.find_one({"statusToken": token})
     if not order:
         raise HTTPException(status_code=404, detail="Bestelling niet gevonden")
+    expires = order.get("statusTokenExpiresAt")
+    if not expires and order.get("createdAt"):
+        try:
+            expires = (datetime.fromisoformat(order["createdAt"]) + timedelta(days=30)).isoformat()
+        except ValueError:
+            expires = None
+    if expires:
+        try:
+            expired = datetime.now(timezone.utc) > datetime.fromisoformat(expires)
+        except ValueError:
+            expired = False
+        if expired:
+            raise HTTPException(status_code=410, detail="Deze link is verlopen.")
     r = await db.restaurants.find_one({"_id": ObjectId(order["restaurantId"])})
     return _public_order_view(order, r)
 
@@ -344,6 +380,7 @@ async def public_order_confirmation(order_id: str):
     r = await db.restaurants.find_one({"_id": ObjectId(order["restaurantId"])})
     data = serialize(order)
     data.pop("statusToken", None)
+    data.pop("statusTokenHash", None)
     data["restaurantName"] = r["name"] if r else ""
     data["restaurantSlug"] = r["slug"] if r else ""
     return data

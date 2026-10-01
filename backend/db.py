@@ -17,6 +17,7 @@ async def ensure_indexes():
     await db.orders.create_index("status")
     await db.orders.create_index("createdAt")
     await db.orders.create_index("statusToken")
+    await db.orders.create_index("statusTokenHash")
     # Partial unique index: only enforce uniqueness when idempotencyKey is a string,
     # so multiple keyless orders never collide on a null value.
     try:
