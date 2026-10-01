@@ -16,7 +16,15 @@ from seed import seed_data  # noqa: E402
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger("upxero")
 
-app = FastAPI(title="Upxero Ordering API", version="1.0.0")
+# API docs are on by default (preview); set ENABLE_DOCS=false in production to hide them.
+_docs_on = os.environ.get("ENABLE_DOCS", "true").lower() == "true"
+app = FastAPI(
+    title="Upxero Ordering API",
+    version="1.0.0",
+    docs_url="/docs" if _docs_on else None,
+    redoc_url="/redoc" if _docs_on else None,
+    openapi_url="/openapi.json" if _docs_on else None,
+)
 
 health = APIRouter(prefix="/api")
 

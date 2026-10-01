@@ -65,7 +65,11 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - **Production note (Render + Atlas)**: fully self-contained in Atlas — no Emergent runtime dependency. For scale, front `order.upxero.com` with Cloudflare for image caching (ingress currently rewrites `/api` Cache-Control to no-store on preview).
 - **Verified (2026-06)**: 78/78 backend pytest (incl. new `tests/test_uploads.py` — upload/replace/remove cycles, magic-byte rejection, empty/oversized, unauth, staff 403, cross-tenant 404, legacy URL passthrough, no-file fallback), 100% frontend. No regressions to Part 1 deletion or logo fallback.
 
-## Backlog / remaining (not in V1)
+## Public menu PDF link + FINAL V1 production-readiness audit (2026-06)
+- **Public PDF link**: added "Bekijk menukaart als PDF" on the public ordering page header (`OrderPage.jsx`, data-testid `public-menu-pdf-link`), shown only when `restaurant.menuFileUrl` exists; opens the existing unauthenticated route `GET /api/public/restaurant/{slug}/menu-file` (correct application/pdf, 404 when removed, no GridFS ids leaked). Works mobile + desktop.
+- **Docs hardening (P3)**: `server.py` now gates FastAPI `/docs`, `/redoc`, `/openapi.json` behind `ENABLE_DOCS` (default on for preview). Set `ENABLE_DOCS=false` on Render to hide them.
+- **Final audit result**: 81/81 backend pytest pass (1 pre-existing geocoding skip), 100% frontend, **no P0/P1/P2 bugs**. Security review passed: explicit-origin CORS + credentials (no wildcard), HttpOnly+Secure+SameSite=None auth cookies, HS256 JWT w/ tokenVersion invalidation, bcrypt, login brute-force lockout, env-only secrets, no debug/reload, no stray test endpoints, GridFS-only storage (no Emergent Object Storage, no local FS), status tokens hashed + 30-day expiry, email failures never corrupt orders.
+- **Deployment env checklist (Render + Atlas)**: set `MONGO_URL` (Atlas SRV), `DB_NAME`, `JWT_SECRET` (strong), `CORS_ORIGINS`/`FRONTEND_URL`=https://order.upxero.com, `EMERGENT_EMAIL_KEY`, `EMAIL_FROM_NAME`, `ADMIN_EMAIL`/`ADMIN_PASSWORD`, `NOMINATIM_USER_AGENT`, `ENABLE_DOCS=false`; frontend `REACT_APP_BACKEND_URL`=production backend URL. **V1 is ready to deploy.**
 - P1: true realtime (WebSockets/SSE), password reset & email verification, staff invitations, in-app QR generation, richer super-admin, SEO/OG polish, PWA install.
 - P2: online payments, Whop entitlements/subscriptions, full FR/EN translations, analytics, driving-distance provider, POS integrations.
 

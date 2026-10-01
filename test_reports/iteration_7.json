@@ -1,0 +1,37 @@
+{
+  "summary": "FINAL V1 production-readiness audit. Only new change is the public 'Bekijk menukaart als PDF' link on /order/<slug>. Backend regression: 78 passed, 1 skipped (pre-existing geocoding skip in TestDeliveryEndToEnd — unchanged, same as iterations 2-6). New focused suite /app/backend/tests/test_public_menu_pdf_link.py (3/3 passed) verifies: (a) public payload exposes restaurant.menuFileUrl as a route path '/api/public/restaurant/bistro-demo/menu-file?v=<id>' (no raw menuFileId leaked), (b) the unauthenticated GET of that route returns 200 with content-type application/pdf and %PDF body, (c) after DELETE /api/restaurant/menu-file, the payload's menuFileUrl is '' and the route returns 404. Frontend Playwright (desktop 1920×1080 + mobile 390×844): [data-testid='public-menu-pdf-link'] is visible on both widths, href resolves to the correct /api backend route including a cache-busting ?v=<id>, link only shown when menuFileUrl exists on the restaurant object, and clicking it hits the backend route (manually fetched 200 application/pdf during pytest). No console errors other than two benign 401s from /api/auth/me on the public page (expected: public visitor is anonymous). Full regression + new tests combined: 81 passed, 1 skipped.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_public_menu_pdf_link.py",
+    "/app/backend/tests/test_uploads.py",
+    "/app/backend/tests/test_upxero_backend.py",
+    "/app/backend/tests/test_upxero_status_timing.py",
+    "/app/backend/tests/test_order_delete.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "OrderPage.jsx: menu PDF link uses resolveFileUrl(restaurant.menuFileUrl), target='_blank' rel='noreferrer', data-testid='public-menu-pdf-link' — rendered only when restaurant.menuFileUrl is truthy. Correctly flows the pattern of route-paths-not-ids used elsewhere (logo, item image).",
+    "public._public_restaurant builds menuFileUrl from slug + menuFileId with ?v=<id> cache-buster; empty string when absent — enables deterministic client-side gating. menuFileId is NOT emitted in the public payload.",
+    "GET /api/public/restaurant/{slug}/menu-file is unauthenticated, returns 404 when no file, 200 application/pdf (from metadata content-type) with inline Content-Disposition when present — verified end-to-end.",
+    "Security review (static): CORS is explicit origins + credentials (no wildcard+credentials); HttpOnly+Secure+SameSite=None cookies on auth; bcrypt via passlib ($2b$); JWT HS256 w/ tokenVersion invalidation; brute-force lockout after 5 fails (verified in prior regression); secrets only from env; frontend uses REACT_APP_BACKEND_URL; no debug=True; no stray /test endpoints. FastAPI /docs + /openapi.json are enabled by default — ACCEPTABLE for V1 but recommend disabling in prod via docs_url=None, openapi_url=None (P3 hardening; not blocking).",
+    "GridFS bucket 'uploads' consistent across storage.py and db.py. No Emergent Object Storage dependency. No local filesystem writes. Status tokens stored as SHA-256 hash with 30-day expiry and legacy plaintext fallback — verified by TestStatusTokenEndpoint.",
+    "Email provider failures do not corrupt order creation (background tasks; order persisted first) — verified by TestEmailToggleIndependence and TestCheckoutEmail suites.",
+    "Preview ingress rewrites Cache-Control to no-store on /api responses — not a backend bug; browser caching will work in Render production where ingress does not rewrite."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_public_menu_pdf_link.py (new)"
+  ],
+  "success_rate": {"backend": "100% (81/81 non-skipped; 1 pre-existing delivery-geocoding skip unchanged)", "frontend": "100%"},
+  "test_credentials": "owner@demo.upxero.com / Demo!2025 ; staff@demo.upxero.com / Demo!2025 ; mike.upxero@gmail.com / Upxero!Admin2025",
+  "seed_data_creation": "During the PDF-link suite, a minimal %PDF-1.4 file is repeatedly uploaded/removed via /api/restaurant/menu-file on bistro-demo. Final test re-uploads so bistro-demo ends the run with a menu PDF present (consistent with the baseline the main agent set up).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "V1 is production-ready. Full backend suite: pytest /app/backend/tests/ -v (needs REACT_APP_BACKEND_URL exported; it's in /app/frontend/.env). All 81 passed, 1 skipped. Public PDF link uses data-testid='public-menu-pdf-link' and renders only when restaurant.menuFileUrl is non-empty. If re-testing, note the public restaurant payload is wrapped: {restaurant: {...}, categories: [...], items: [...]} — menuFileUrl lives on payload.restaurant.menuFileUrl, not top-level. P3 hardening recommendation (non-blocking): disable FastAPI /docs and /openapi.json in production.",
+  "rca of the issue": "N/A — no bugs found. The new public PDF link integrates cleanly with the existing unauthenticated menu-file serve route; backend emits a route path (not a GridFS id), the frontend gates visibility on restaurant.menuFileUrl, and deletion correctly removes both the link and the serve-route payload."
+}
