@@ -84,7 +84,9 @@ async def update_settings(payload: SettingsReq, user: dict = Depends(admin_only)
     await db.restaurants.update_one(
         {"_id": rid},
         {"$set": {"orderingEnabled": payload.orderingEnabled,
-                  "pickupEnabled": payload.pickupEnabled, "updatedAt": now_iso()}},
+                  "pickupEnabled": payload.pickupEnabled,
+                  "orderEmailsEnabled": payload.orderEmailsEnabled,
+                  "updatedAt": now_iso()}},
     )
     r = await db.restaurants.find_one({"_id": rid})
     return serialize(r)

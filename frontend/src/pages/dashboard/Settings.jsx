@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Power, ShoppingBag, Loader2 } from "lucide-react";
+import { Power, ShoppingBag, Loader2, Bell } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
@@ -12,7 +12,8 @@ export default function Settings() {
 
   useEffect(() => {
     api.get("/restaurant/me").then(({ data }) =>
-      setState({ orderingEnabled: data.orderingEnabled, pickupEnabled: data.pickupEnabled })
+      setState({ orderingEnabled: data.orderingEnabled, pickupEnabled: data.pickupEnabled,
+                 orderEmailsEnabled: data.orderEmailsEnabled !== false })
     );
   }, []);
 
@@ -61,6 +62,19 @@ export default function Settings() {
             </div>
           </div>
           <Switch checked={state.pickupEnabled} onCheckedChange={(v) => update({ pickupEnabled: v })} data-testid="settings-pickup-switch" />
+        </div>
+      </Card>
+
+      <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><Bell className="h-5 w-5" /></span>
+            <div>
+              <p className="font-semibold text-slate-900">E-mail bij nieuwe bestelling</p>
+              <p className="text-sm text-slate-500">Ontvang een e-mail op je restaurantadres voor elke nieuwe bestelling.</p>
+            </div>
+          </div>
+          <Switch checked={state.orderEmailsEnabled} onCheckedChange={(v) => update({ orderEmailsEnabled: v })} data-testid="settings-order-emails-switch" />
         </div>
       </Card>
     </div>

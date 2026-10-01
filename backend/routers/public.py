@@ -2,7 +2,7 @@ import hashlib
 from datetime import datetime, timezone
 
 from bson import ObjectId
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Response
 from zoneinfo import ZoneInfo
 
 from db import db
@@ -10,6 +10,7 @@ from models import AcceptInviteReq, PublicOrderReq, QuoteReq
 from security import (create_access_token, create_refresh_token, hash_password,
                       set_auth_cookies)
 from services.distance import geocode, haversine_km
+from services.email import send_new_order_email
 from services.notifications import notify_new_order
 from utils import next_order_number, now_iso, oid, serialize
 
@@ -183,7 +184,7 @@ async def quote_order(slug: str, payload: QuoteReq):
 
 
 @router.post("/restaurant/{slug}/orders")
-async def create_public_order(slug: str, payload: PublicOrderReq):
+async def create_public_order(slug: str, payload: PublicOrderReq, background_tasks: BackgroundTasks):
     r = await db.restaurants.find_one({"slug": slug, "isActive": True})
     if not r:
         raise HTTPException(status_code=404, detail="Restaurant niet gevonden")
@@ -282,6 +283,8 @@ async def create_public_order(slug: str, payload: PublicOrderReq):
         raise HTTPException(status_code=500, detail="De bestelling kon niet worden opgeslagen. Probeer het opnieuw.")
     order["_id"] = res.inserted_id
     await notify_new_order(rid, order_number)
+    if r.get("orderEmailsEnabled", True) and r.get("email"):
+        background_tasks.add_task(send_new_order_email, r["email"], r["name"], serialize(order))
     return serialize(order)
 
 

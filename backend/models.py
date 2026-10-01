@@ -152,6 +152,7 @@ class OpeningHoursReq(BaseModel):
 class SettingsReq(BaseModel):
     orderingEnabled: bool
     pickupEnabled: bool
+    orderEmailsEnabled: bool = True
 
 
 # ---------- Public order ----------
