@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Loader2, Phone, MapPin, StickyNote, ShoppingBag, Truck, RefreshCw, Clock, Pencil } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Loader2, Phone, MapPin, StickyNote, ShoppingBag, Truck, RefreshCw, Clock, Pencil, Bell, BellRing, Check } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { euro, formatTime } from "../../lib/format";
@@ -60,9 +60,79 @@ export default function Orders() {
   const [orders, setOrders] = useState(null);
   const [filter, setFilter] = useState("actief");
   const [busy, setBusy] = useState(null);
+  const [unseen, setUnseen] = useState(0);
+  const [alertsOn, setAlertsOn] = useState(false);
+  const knownNewIds = useRef(new Set());
+  const seededRef = useRef(false);
+  const audioRef = useRef(null);
+
+  // Short two-tone chime via Web Audio (no asset); only fires after the user
+  // enabled alerts, which also satisfies the browser autoplay gesture gate.
+  const playChime = () => {
+    const ctx = audioRef.current;
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+      [880, 1320].forEach((freq, i) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.value = freq;
+        const start = now + i * 0.18;
+        gain.gain.setValueAtTime(0.0001, start);
+        gain.gain.exponentialRampToValueAtTime(0.25, start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+        osc.connect(gain).connect(ctx.destination);
+        osc.start(start);
+        osc.stop(start + 0.24);
+      });
+    } catch { /* ignore */ }
+  };
+
+  const enableAlerts = async () => {
+    try {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC && !audioRef.current) audioRef.current = new AC();
+      if (audioRef.current?.state === "suspended") await audioRef.current.resume();
+    } catch { /* ignore */ }
+    if ("Notification" in window && Notification.permission === "default") {
+      try { await Notification.requestPermission(); } catch { /* ignore */ }
+    }
+    setAlertsOn(true);
+    toast.success("Meldingen ingeschakeld");
+  };
+
+  const notifyNew = (count) => {
+    playChime();
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification(count === 1 ? "Nieuwe bestelling" : `${count} nieuwe bestellingen`, {
+          body: "Open het dashboard om de bestelling te bekijken.",
+          tag: "upxero-new-order",
+        });
+      } catch { /* ignore */ }
+    }
+  };
+
+  // Genuinely-new detection: seed known ids on first load (no alert), then only
+  // ids never seen before count as new — so polling never re-alerts.
+  const detectNew = (data) => {
+    const ids = data.filter((o) => o.status === "new").map((o) => o.id);
+    if (!seededRef.current) {
+      ids.forEach((id) => knownNewIds.current.add(id));
+      seededRef.current = true;
+      return;
+    }
+    const fresh = ids.filter((id) => !knownNewIds.current.has(id));
+    fresh.forEach((id) => knownNewIds.current.add(id));
+    if (fresh.length > 0) {
+      setUnseen((c) => c + fresh.length);
+      if (alertsOn) notifyNew(fresh.length);
+    }
+  };
 
   const load = async () => {
-    try { const { data } = await api.get("/orders"); setOrders(data); }
+    try { const { data } = await api.get("/orders"); setOrders(data); detectNew(data); }
     catch { setOrders([]); }
   };
 
@@ -70,7 +140,17 @@ export default function Orders() {
     load();
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
-  }, []);
+    // eslint-disable-next-line
+  }, [alertsOn]);
+
+  // Tab-title badge for unseen new orders.
+  useEffect(() => () => { document.title = "Upxero Ordering"; }, []);
+  useEffect(() => {
+    const base = "Bestellingen · Upxero Ordering";
+    document.title = unseen > 0 ? `(${unseen}) ${base}` : base;
+  }, [unseen]);
+
+  const markSeen = () => setUnseen(0);
 
   const current = FILTERS.find((f) => f.key === filter);
   const filtered = useMemo(() => {
@@ -104,9 +184,21 @@ export default function Orders() {
           <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Bestellingen</h1>
           <p className="mt-1 text-sm text-slate-500">Vernieuwt automatisch elke 10 seconden.</p>
         </div>
-        <Button variant="outline" onClick={load} className="border-slate-300" data-testid="orders-refresh">
-          <RefreshCw className="mr-2 h-4 w-4" /> Vernieuwen
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {unseen > 0 && (
+            <Button variant="outline" onClick={markSeen} className="border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100" data-testid="orders-mark-seen">
+              <Check className="mr-2 h-4 w-4" /> Markeer als gezien ({unseen})
+            </Button>
+          )}
+          <Button variant="outline" onClick={alertsOn ? () => setAlertsOn(false) : enableAlerts}
+            className={`border-slate-300 ${alertsOn ? "text-emerald-700" : ""}`} data-testid="orders-alerts-toggle">
+            {alertsOn ? <BellRing className="mr-2 h-4 w-4 text-emerald-600" /> : <Bell className="mr-2 h-4 w-4" />}
+            {alertsOn ? "Meldingen aan" : "Meldingen aanzetten"}
+          </Button>
+          <Button variant="outline" onClick={load} className="border-slate-300" data-testid="orders-refresh">
+            <RefreshCw className="mr-2 h-4 w-4" /> Vernieuwen
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-2">
