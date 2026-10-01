@@ -1,0 +1,31 @@
+{
+  "summary": "Full matrix validation of PART 1: DELETE /api/orders/{id} + Orders.jsx delete UI + Logo rendering fix. Backend: full regression + new delete test file (test_order_delete.py) via pytest-xdist = 59 passed, 1 skipped (delivery-geocoding, unchanged). All delete rules verified via API: admin DELETE completed/cancelled -> 200 {message:'Bestelling verwijderd'}, subsequent GET -> 404; admin DELETE active (new/accepted/preparing/ready) -> 400 with exact Dutch detail 'Alleen afgeronde of geannuleerde bestellingen kunnen worden verwijderd.' and order remains; staff DELETE cancelled -> 403, order remains; customer status-token URL returns 404 after delete (statusTokenHash lookup finds nothing); orderNumber counter is strictly monotonic across a delete+new-order sequence (never reused/reset); unknown/foreign order id -> 404 (tenant filter {_id, restaurantId}). Frontend verified end-to-end: admin on /dashboard/bestellingen 'Geannuleerd' filter shows order-delete-{n}; clicking opens delete-dialog-{n}; delete-cancel keeps the card; delete-confirm removes it (toast + list refresh); 'Actief' filter shows zero delete buttons across 94 cards; staff role sees ZERO delete buttons on both 'Geannuleerd' (12 cards) and 'Afgerond' (15 cards). Logo fix verified: with logo cleared, sidebar renders data-testid='upxero-logo' (fallback brand, 2 instances = desktop sidebar + mobile header); after PUT /api/restaurant/profile with https://images.unsplash.com/... the sidebar renders data-testid='restaurant-logo' with correct src and no 'upxero-logo' present, and the public /order/bistro-demo page header also renders data-testid='restaurant-logo'. No pageerrors, no console errors (only expected 401 on /auth/me before login).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_order_delete.py",
+    "/app/backend/tests/test_upxero_backend.py",
+    "/app/backend/tests/test_upxero_status_timing.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "orders.py DELETE handler is tight: fetches with {_id, restaurantId}, 404 on miss, 400 on non-deletable status, delete_one re-asserts restaurantId -> safe against race/foreign tenant.",
+    "Error message is exactly the Dutch string specified by the problem statement; stable to assert in tests and UX copy.",
+    "Deletion uses db.orders.delete_one; no counter decrement, so next_order_number (which $inc's db.counters) is naturally monotonic and never reuses an orderNumber.",
+    "public.order_status looks up by statusTokenHash only; because the entire order document is removed on delete, the token resolves nowhere -> 404 (confirmed in test_status_token_404_after_delete). No separate token-revocation table needed.",
+    "Logo.jsx: when src is truthy, renders <img object-contain> inside the data-testid='restaurant-logo' container with an onError that hides the broken image. Fallback to data-testid='upxero-logo' when src is empty. Height h-9 + w-auto + max-w-[180px] preserves aspect ratio and prevents layout break — matches the spec.",
+    "Orders.jsx: canDelete = isAdmin && ['completed','cancelled'].includes(status) — correctly gates the Verwijderen button; AlertDialog testids are parametrized with orderNumber per spec; onDelete calls api.delete(`/orders/${id}`) and reloads list on success.",
+    "Minor (not blocking): Logo onError hides the <img> but leaves the restaurant-logo wrapper <div> rendered — the parent gap-2 flex just collapses. If the logo URL is permanently broken the sidebar shows an empty 36px gap instead of falling back to the Upxero brand. Consider swapping to a stateful fallback (useState for imgError -> render upxero-logo) in a future iteration."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_order_delete.py (new)"
+  ],
+  "success_rate": {"backend": "100% (59/59 non-skipped; 1 pre-existing delivery skip unchanged)", "frontend": "100%"},
+  "test_credentials": "owner@demo.upxero.com / Demo!2025 ; staff@demo.upxero.com / Demo!2025 ; mike.upxero@gmail.com / Upxero!Admin2025",
+  "seed_data_creation": "During tests created several orders via POST /api/public/restaurant/bistro-demo/orders (orderNumbers in 1130s). All test-created orders were cancelled and then DELETEd as cleanup except where delete was the subject-under-test; one UI-exercised order (#1139) was permanently deleted via the UI delete flow.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "DELETE /api/orders/{id} is live and strict. Admin role is checked via require_roles('restaurant_admin'). Dashboard route is /dashboard/bestellingen; delete UI uses data-testid='order-delete-{orderNumber}' / 'delete-dialog-{n}' / 'delete-confirm-{n}' / 'delete-cancel-{n}'. Logo wired in Logo.jsx (optional `src` prop) and used by OrderPage header (src={restaurant.logo}) and DashboardLayout sidebar + mobile header (src={restaurant?.logo}). Auth is cookie-based (httpOnly) + bearer token; to switch roles in Playwright, call `await page.context.clear_cookies()` BEFORE navigating to /login. urllib default UA can get 403 on some endpoints — always pass a Mozilla UA header for /api calls from Python/urllib. Uploads (parts 2–4 of the task) are NOT implemented yet and were intentionally not tested.",
+  "rca of the issue": "N/A — no bugs found. All delete rules, tenant isolation, status-link invalidation, counter integrity, UI gating, and logo rendering behave as specified."
+}

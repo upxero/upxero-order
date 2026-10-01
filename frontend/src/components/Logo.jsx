@@ -1,15 +1,18 @@
+import { useState } from "react";
 import { UtensilsCrossed } from "lucide-react";
 
 export function Logo({ compact = false, className = "", src = "", alt = "Logo" }) {
-  // When a restaurant logo URL is provided, render it (aspect ratio preserved).
-  if (src) {
+  const [imgError, setImgError] = useState(false);
+
+  // When a valid restaurant logo URL is provided, render it (aspect ratio preserved).
+  if (src && !imgError) {
     return (
       <div className={`flex items-center gap-2 ${className}`} data-testid="restaurant-logo">
         <img
           src={src}
           alt={alt}
           className="h-9 w-auto max-w-[180px] rounded-lg object-contain"
-          onError={(e) => { e.currentTarget.style.display = "none"; }}
+          onError={() => setImgError(true)}
         />
       </div>
     );

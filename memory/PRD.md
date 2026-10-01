@@ -45,6 +45,16 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - Explicit "Markeer als gezien (N)" button resets the badge; seen ids stay known so they are not re-counted. Works identically for admin & staff; tenant isolation unchanged.
 - **Verified (2026-06)**: backend regression 49/49 pass (no regressions); frontend 100% — first-load seeding, new-order detection <10s, badge format, dedup across poll cycles, mark-seen reset, toggle on/off for admin+staff; no AudioContext/Notification/title console errors.
 
+## Order deletion + logo rendering fix (2026-06)
+- **Delete completed/cancelled orders** (Part 1 of the uploads task). New admin-only `DELETE /api/orders/{id}` (`routers/orders.py`, dep `require_roles('restaurant_admin')`): tenant-scoped `{_id, restaurantId}`, 404 if missing, 400 if status not in {completed, cancelled}, else hard delete. Staff → 403. Order numbers stay monotonic (counter uses `$inc`, never reset). Deleted order's customer status link returns 404 (lookup finds nothing). Dashboard shows a "Verwijderen" button with an AlertDialog confirmation on completed/cancelled cards, admin-only (`Orders.jsx`).
+- **Logo rendering bug fixed**: `components/Logo.jsx` now takes an optional `src` prop and renders the restaurant logo (`object-contain`, aspect preserved, stateful fallback to the Upxero brand on load error). Wired into the public ordering page header (`OrderPage.jsx`, `src={restaurant.logo}`) and the dashboard sidebar + mobile header (`DashboardLayout.jsx`). No upload/storage introduced — still a URL field for now.
+- **Verified (2026-06)**: 59/59 backend pytest (incl. new `tests/test_order_delete.py`), 100% frontend — full delete authz matrix, tenant isolation, status-link invalidation, counter integrity, UI gating for admin vs staff, logo render + fallback. No regressions.
+
+## Storage decision for Parts 2–4 (uploads) — pending implementation
+- Chosen: **Emergent-managed Object Storage** (via integration proxy; uses `EMERGENT_LLM_KEY` + `INTEGRATION_PROXY_URL`, soft-delete in DB, files served through authenticated backend endpoints).
+- ⚠️ **Production caveat (Render + MongoDB Atlas)**: Emergent Object Storage is reached through the Emergent integration proxy and keyed by `EMERGENT_LLM_KEY`. Even when the app is hosted on Render, uploads/downloads continue to route through `integrations.emergentagent.com` and require a valid `EMERGENT_LLM_KEY` in the Render env. Files persist (not ephemeral), but the app stays dependent on the Emergent proxy + key being present in production. No native S3/Atlas-local storage. This must be confirmed/accepted before building parts 2–4.
+- Parts 2 (logo upload), 3 (menu-item image upload), 4 (menu-file upload) are NOT implemented yet, per instruction to verify storage first.
+
 ## Backlog / remaining (not in V1)
 - P1: true realtime (WebSockets/SSE), password reset & email verification, staff invitations, in-app QR generation, richer super-admin, SEO/OG polish, PWA install.
 - P2: online payments, Whop entitlements/subscriptions, full FR/EN translations, analytics, driving-distance provider, POS integrations.
