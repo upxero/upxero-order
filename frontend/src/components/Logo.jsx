@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { UtensilsCrossed } from "lucide-react";
 
-export function Logo({ compact = false, className = "", src = "", alt = "Logo" }) {
+export function Logo({ compact = false, className = "", src = "", alt = "Logo", onDark = false }) {
   const [imgError, setImgError] = useState(false);
 
   // When a valid restaurant logo URL is provided, render it (aspect ratio preserved).
@@ -24,8 +24,8 @@ export function Logo({ compact = false, className = "", src = "", alt = "Logo" }
         <UtensilsCrossed className="h-4.5 w-4.5" size={18} />
       </span>
       {!compact && (
-        <span className="font-heading text-lg font-bold tracking-tight text-slate-900">
-          Upxero<span className="text-emerald-600"> Ordering</span>
+        <span className={`font-heading text-lg font-bold tracking-tight ${onDark ? "text-white" : "text-slate-900"}`}>
+          Upxero<span className={onDark ? "text-emerald-400" : "text-emerald-600"}> Ordering</span>
         </span>
       )}
     </div>
