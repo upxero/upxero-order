@@ -108,16 +108,33 @@ export default function Delivery() {
         ) : (
           <div className="mt-4 space-y-3">
             <div className="hidden gap-3 px-1 text-xs font-medium text-slate-400 sm:grid sm:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]">
-              <span>{t("Van (km)")}</span><span>{t("Tot (km)")}</span><span>{t("Bezorgkosten €")}</span><span>{t("Min. bestelling €")}</span><span>{t("Aan")}</span><span></span>
+              <span>{t("Vanaf (km)")}</span><span>{t("Tot (km)")}</span><span>{t("Bezorgkosten (€)")}</span><span>{t("Min. bestelling (€)")}</span><span>{t("Aan")}</span><span></span>
             </div>
             {form.zones.map((z, i) => (
-              <div key={i} className="grid grid-cols-2 items-center gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto_auto]" data-testid={`zone-row-${i}`}>
-                <Input type="number" step="0.5" value={z.minDistance} onChange={(e) => updZone(i, { minDistance: e.target.value })} className="bg-white" data-testid={`zone-min-dist-${i}`} />
-                <Input type="number" step="0.5" value={z.maxDistance} onChange={(e) => updZone(i, { maxDistance: e.target.value })} className="bg-white" data-testid={`zone-max-dist-${i}`} />
-                <Input type="number" step="0.5" value={z.deliveryFee} onChange={(e) => updZone(i, { deliveryFee: e.target.value })} className="bg-white" data-testid={`zone-fee-${i}`} />
-                <Input type="number" step="0.5" value={z.minimumOrderAmount} onChange={(e) => updZone(i, { minimumOrderAmount: e.target.value })} className="bg-white" data-testid={`zone-min-order-${i}`} />
-                <div className="flex justify-center"><Switch checked={z.enabled} onCheckedChange={(v) => updZone(i, { enabled: v })} /></div>
-                <Button variant="ghost" size="icon" onClick={() => removeZone(i)} data-testid={`zone-delete-${i}`}><Trash2 className="h-4 w-4 text-rose-500" /></Button>
+              <div key={i} className="grid grid-cols-2 items-end gap-3 rounded-lg bg-slate-50 p-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto_auto] sm:items-center" data-testid={`zone-row-${i}`}>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-500 sm:hidden">{t("Vanaf (km)")}</span>
+                  <Input type="number" step="0.5" value={z.minDistance} onChange={(e) => updZone(i, { minDistance: e.target.value })} className="w-full bg-white" data-testid={`zone-min-dist-${i}`} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-500 sm:hidden">{t("Tot (km)")}</span>
+                  <Input type="number" step="0.5" value={z.maxDistance} onChange={(e) => updZone(i, { maxDistance: e.target.value })} className="w-full bg-white" data-testid={`zone-max-dist-${i}`} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-500 sm:hidden">{t("Bezorgkosten (€)")}</span>
+                  <Input type="number" step="0.5" value={z.deliveryFee} onChange={(e) => updZone(i, { deliveryFee: e.target.value })} className="w-full bg-white" data-testid={`zone-fee-${i}`} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-slate-500 sm:hidden">{t("Min. bestelling (€)")}</span>
+                  <Input type="number" step="0.5" value={z.minimumOrderAmount} onChange={(e) => updZone(i, { minimumOrderAmount: e.target.value })} className="w-full bg-white" data-testid={`zone-min-order-${i}`} />
+                </label>
+                <div className="flex flex-col items-start sm:items-center">
+                  <span className="mb-1 block text-xs font-medium text-slate-500 sm:hidden">{t("Aan")}</span>
+                  <div className="flex h-10 items-center"><Switch checked={z.enabled} onCheckedChange={(v) => updZone(i, { enabled: v })} /></div>
+                </div>
+                <div className="flex h-10 items-center justify-end">
+                  <Button variant="ghost" size="icon" onClick={() => removeZone(i)} data-testid={`zone-delete-${i}`}><Trash2 className="h-4 w-4 text-rose-500" /></Button>
+                </div>
               </div>
             ))}
           </div>

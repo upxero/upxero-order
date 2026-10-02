@@ -164,9 +164,12 @@ export const EN = {
   "Zone": "Zone",
   "Nog geen bezorgzones ingesteld.": "No delivery zones set up yet.",
   "Van (km)": "From (km)",
+  "Vanaf (km)": "From (km)",
   "Tot (km)": "To (km)",
   "Bezorgkosten €": "Delivery fee €",
+  "Bezorgkosten (€)": "Delivery fee (€)",
   "Min. bestelling €": "Min. order €",
+  "Min. bestelling (€)": "Minimum order (€)",
   "Aan": "On",
 
   // Menu items
