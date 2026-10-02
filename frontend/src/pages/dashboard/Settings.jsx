@@ -3,11 +3,13 @@ import { Power, ShoppingBag, Loader2, Bell } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { useAuth } from "../../context/AuthContext";
+import { useT } from "../../context/I18nContext";
 import { Switch } from "../../components/ui/switch";
 import { Card } from "../../components/ui/card";
 
 export default function Settings() {
   const { refetch } = useAuth();
+  const t = useT();
   const [state, setState] = useState(null);
 
   useEffect(() => {
@@ -25,10 +27,10 @@ export default function Settings() {
     setState(next);
     try {
       await api.put("/restaurant/settings", next);
-      toast.success("Instelling opgeslagen");
+      toast.success(t("Instelling opgeslagen"));
       refetch();
     } catch (e) {
-      toast.error(apiError(e));
+      toast.error(t(apiError(e)));
       setState(state);
     }
   };
@@ -36,8 +38,8 @@ export default function Settings() {
   return (
     <div className="space-y-6" data-testid="settings-page">
       <div>
-        <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Instellingen</h1>
-        <p className="mt-1 text-sm text-slate-500">Schakel online bestellen en afhalen aan of uit.</p>
+        <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t("Instellingen")}</h1>
+        <p className="mt-1 text-sm text-slate-500">{t("Schakel online bestellen en afhalen aan of uit.")}</p>
       </div>
 
       <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
@@ -45,8 +47,8 @@ export default function Settings() {
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><Power className="h-5 w-5" /></span>
             <div>
-              <p className="font-semibold text-slate-900">Online bestellen</p>
-              <p className="text-sm text-slate-500">Zet uit om tijdelijk geen bestellingen te ontvangen.</p>
+              <p className="font-semibold text-slate-900">{t("Online bestellen")}</p>
+              <p className="text-sm text-slate-500">{t("Zet uit om tijdelijk geen bestellingen te ontvangen.")}</p>
             </div>
           </div>
           <Switch checked={state.orderingEnabled} onCheckedChange={(v) => update({ orderingEnabled: v })} data-testid="settings-ordering-switch" />
@@ -58,8 +60,8 @@ export default function Settings() {
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><ShoppingBag className="h-5 w-5" /></span>
             <div>
-              <p className="font-semibold text-slate-900">Afhalen</p>
-              <p className="text-sm text-slate-500">Klanten kunnen hun bestelling komen afhalen.</p>
+              <p className="font-semibold text-slate-900">{t("Afhalen")}</p>
+              <p className="text-sm text-slate-500">{t("Klanten kunnen hun bestelling komen afhalen.")}</p>
             </div>
           </div>
           <Switch checked={state.pickupEnabled} onCheckedChange={(v) => update({ pickupEnabled: v })} data-testid="settings-pickup-switch" />
@@ -71,8 +73,8 @@ export default function Settings() {
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><Bell className="h-5 w-5" /></span>
             <div>
-              <p className="font-semibold text-slate-900">E-mail bij nieuwe bestelling</p>
-              <p className="text-sm text-slate-500">Ontvang een e-mail op je restaurantadres voor elke nieuwe bestelling.</p>
+              <p className="font-semibold text-slate-900">{t("E-mail bij nieuwe bestelling")}</p>
+              <p className="text-sm text-slate-500">{t("Ontvang een e-mail op je restaurantadres voor elke nieuwe bestelling.")}</p>
             </div>
           </div>
           <Switch checked={state.orderEmailsEnabled} onCheckedChange={(v) => update({ orderEmailsEnabled: v })} data-testid="settings-order-emails-switch" />
@@ -84,8 +86,8 @@ export default function Settings() {
           <div className="flex items-center gap-3">
             <span className="grid h-10 w-10 place-items-center rounded-lg bg-emerald-50 text-emerald-600"><Bell className="h-5 w-5" /></span>
             <div>
-              <p className="font-semibold text-slate-900">Klantmeldingen per e-mail</p>
-              <p className="text-sm text-slate-500">Stuur de klant updates (ontvangen, bevestigd, klaar/onderweg) als ze een e-mailadres opgeven.</p>
+              <p className="font-semibold text-slate-900">{t("Klantmeldingen per e-mail")}</p>
+              <p className="text-sm text-slate-500">{t("Stuur de klant updates (ontvangen, bevestigd, klaar/onderweg) als ze een e-mailadres opgeven.")}</p>
             </div>
           </div>
           <Switch checked={state.customerEmailsEnabled} onCheckedChange={(v) => update({ customerEmailsEnabled: v })} data-testid="settings-customer-emails-switch" />

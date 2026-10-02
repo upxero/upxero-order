@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { apiError } from "../lib/api";
+import { makeT } from "../lib/i18n";
 import { Logo } from "../components/Logo";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -29,7 +30,7 @@ export default function Register() {
       toast.success("Restaurant created! Welcome to Upxero Ordering.");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      toast.error(apiError(err, "Registration failed"));
+      toast.error(makeT("en")(apiError(err, "Registration failed")));
     } finally {
       setLoading(false);
     }

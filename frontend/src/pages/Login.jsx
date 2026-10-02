@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { apiError } from "../lib/api";
+import { makeT } from "../lib/i18n";
 import { Logo } from "../components/Logo";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -28,7 +29,7 @@ export default function Login() {
       toast.success("Welcome back!");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      toast.error(apiError(err, "Login failed"));
+      toast.error(makeT("en")(apiError(err, "Login failed")));
     } finally {
       setLoading(false);
     }

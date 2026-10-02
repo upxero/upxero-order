@@ -6,7 +6,7 @@ import {
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { euro } from "../../lib/format";
-import { DAYS } from "../../lib/constants";
+import { makeT } from "../../lib/i18n";
 import { Logo } from "../../components/Logo";
 import { resolveFileUrl } from "../../lib/files";
 import { Button } from "../../components/ui/button";
@@ -45,12 +45,14 @@ export default function OrderPage() {
   const subtotal = useMemo(() => cart.reduce((s, l) => s + lineUnit(l) * l.quantity, 0), [cart]);
   const cartCount = cart.reduce((s, l) => s + l.quantity, 0);
 
+  const t = makeT(data?.restaurant?.defaultLanguage || "en");
+
   if (data === undefined) return <div className="grid min-h-screen place-items-center bg-slate-50"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
   if (data === null) return (
     <div className="grid min-h-screen place-items-center bg-slate-50 px-6 text-center">
       <div>
-        <h1 className="font-heading text-2xl font-bold text-slate-900">Restaurant niet gevonden</h1>
-        <p className="mt-2 text-slate-500">Controleer de link en probeer het opnieuw.</p>
+        <h1 className="font-heading text-2xl font-bold text-slate-900">{t("Restaurant niet gevonden")}</h1>
+        <p className="mt-2 text-slate-500">{t("Controleer de link en probeer het opnieuw.")}</p>
       </div>
     </div>
   );
@@ -66,7 +68,7 @@ export default function OrderPage() {
       image: item.image, selectedOptions, quantity,
     };
     setCart((c) => [...c, line]);
-    toast.success(`${item.name} toegevoegd`);
+    toast.success(t("{name} toegevoegd", { name: item.name }));
   };
 
   const setQty = (cartId, delta) =>
@@ -92,7 +94,7 @@ export default function OrderPage() {
           <div className="flex items-center justify-between">
             <span className="rounded-lg bg-white/10 px-1 py-0.5 backdrop-blur"><Logo src={resolveFileUrl(restaurant.logo)} alt={restaurant.name} /></span>
             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${restaurant.isOpen ? "bg-emerald-500 text-white" : "bg-rose-500 text-white"}`} data-testid="restaurant-open-status">
-              {restaurant.isOpen ? "Open" : "Gesloten"}
+              {restaurant.isOpen ? t("Open") : t("Gesloten")}
             </span>
           </div>
           <h1 className="mt-6 font-heading text-3xl font-bold tracking-tight text-white sm:text-4xl" data-testid="restaurant-name">{restaurant.name}</h1>
@@ -102,15 +104,15 @@ export default function OrderPage() {
               <span className="flex items-center gap-1"><MapPin className="h-4 w-4" /> {restaurant.street} {restaurant.houseNumber}, {restaurant.city}</span>
             )}
             <span className="flex items-center gap-1">
-              {restaurant.pickupEnabled && <><ShoppingBag className="h-4 w-4" /> Afhalen</>}
-              {restaurant.deliveryEnabled && <><Truck className="ml-2 h-4 w-4" /> Bezorgen</>}
+              {restaurant.pickupEnabled && <><ShoppingBag className="h-4 w-4" /> {t("Afhalen")}</>}
+              {restaurant.deliveryEnabled && <><Truck className="ml-2 h-4 w-4" /> {t("Bezorgen")}</>}
             </span>
           </div>
           {restaurant.menuFileUrl && (
             <a href={resolveFileUrl(restaurant.menuFileUrl)} target="_blank" rel="noreferrer"
               data-testid="public-menu-pdf-link"
               className="mt-3 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3 py-1.5 text-sm font-medium text-white backdrop-blur transition-colors hover:bg-white/20">
-              <FileText className="h-4 w-4" /> Bekijk menukaart als PDF
+              <FileText className="h-4 w-4" /> {t("Bekijk menukaart als PDF")}
             </a>
           )}
         </div>
@@ -120,7 +122,7 @@ export default function OrderPage() {
         <div className="mx-auto mt-4 max-w-5xl px-4 sm:px-6">
           <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800" data-testid="ordering-unavailable">
             <Clock className="h-4 w-4" />
-            {restaurant.orderingEnabled ? "Het restaurant is momenteel gesloten." : "Online bestellen is momenteel niet beschikbaar."}
+            {restaurant.orderingEnabled ? t("Het restaurant is momenteel gesloten.") : t("Online bestellen is momenteel niet beschikbaar.")}
           </div>
         </div>
       )}
@@ -143,7 +145,7 @@ export default function OrderPage() {
 
       {/* Menu */}
       <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6">
-        {categories.length === 0 && <p className="py-16 text-center text-slate-500">Dit menu is nog leeg.</p>}
+        {categories.length === 0 && <p className="py-16 text-center text-slate-500">{t("Dit menu is nog leeg.")}</p>}
         {categories.map((c) => (
           <section key={c.id} id={`cat-${c.id}`} className="mb-8 scroll-mt-20">
             <h2 className="font-heading text-xl font-bold text-slate-900">{c.name}</h2>
@@ -157,7 +159,7 @@ export default function OrderPage() {
                     <p className="font-semibold text-slate-900">{item.name}</p>
                     {item.description && <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">{item.description}</p>}
                     <p className="mt-2 tabular font-semibold text-emerald-700">{euro(item.price)}</p>
-                    {!item.isAvailable && <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">Niet beschikbaar</span>}
+                    {!item.isAvailable && <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">{t("Niet beschikbaar")}</span>}
                   </div>
                   {item.image && (
                     <div className="relative">
@@ -177,19 +179,19 @@ export default function OrderPage() {
         <div className="fixed inset-x-0 bottom-0 z-30 border-t border-slate-200 bg-white p-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] lg:sticky lg:bottom-6 lg:mx-auto lg:max-w-md lg:rounded-xl lg:border">
           <Button onClick={() => setCartOpen(true)} data-testid="view-cart-button"
             className="flex w-full items-center justify-between bg-emerald-600 px-4 py-6 text-base hover:bg-emerald-700">
-            <span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" /> {cartCount} in winkelmand</span>
+            <span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" /> {cartCount} {t("in winkelmand")}</span>
             <span className="tabular font-bold">{euro(subtotal)}</span>
           </Button>
         </div>
       )}
 
-      {optItem && <OptionsModal item={optItem} onClose={() => setOptItem(null)} onAdd={addToCart} />}
+      {optItem && <OptionsModal item={optItem} onClose={() => setOptItem(null)} onAdd={addToCart} t={t} />}
 
       <CartSheet open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setQty={setQty} subtotal={subtotal}
-        onCheckout={() => { setCartOpen(false); setCheckout(true); }} />
+        onCheckout={() => { setCartOpen(false); setCheckout(true); }} t={t} />
 
       {checkout && (
-        <Checkout slug={slug} restaurant={restaurant} cart={cart} subtotal={subtotal}
+        <Checkout slug={slug} restaurant={restaurant} cart={cart} subtotal={subtotal} t={t}
           onBack={() => setCheckout(false)}
           onSuccess={(order) => { setCart([]); localStorage.removeItem(`upxero-cart-${slug}`); navigate(order.statusToken ? `/order-status/${order.statusToken}` : `/order/${slug}/bevestiging/${order.id}`); }}
           idemRef={idemRef} />
@@ -198,7 +200,7 @@ export default function OrderPage() {
   );
 }
 
-function OptionsModal({ item, onClose, onAdd }) {
+function OptionsModal({ item, onClose, onAdd, t }) {
   const [selected, setSelected] = useState({});
   const [qty, setQty] = useState(1);
 
@@ -220,7 +222,7 @@ function OptionsModal({ item, onClose, onAdd }) {
   const unit = item.price + flat.reduce((s, o) => s + o.price, 0);
 
   const confirm = () => {
-    if (missing.length) { toast.error(`Maak een keuze voor: ${missing.map((g) => g.name).join(", ")}`); return; }
+    if (missing.length) { toast.error(t("Maak een keuze voor: {groups}", { groups: missing.map((g) => g.name).join(", ") })); return; }
     onAdd(item, flat, qty);
     onClose();
   };
@@ -229,15 +231,15 @@ function OptionsModal({ item, onClose, onAdd }) {
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-h-[90vh] overflow-y-auto scroll-thin sm:max-w-md" data-testid="options-modal">
         <DialogHeader><DialogTitle>{item.name}</DialogTitle></DialogHeader>
-        <DialogDescription className="sr-only">Kies opties en aantal voor {item.name}</DialogDescription>
+        <DialogDescription className="sr-only">{t("Kies opties en aantal voor {name}", { name: item.name })}</DialogDescription>
         {item.description && <p className="-mt-2 text-sm text-slate-500">{item.description}</p>}
         <div className="space-y-4">
           {item.optionGroups.map((g) => (
             <div key={g.id}>
               <p className="flex items-center gap-2 text-sm font-semibold text-slate-900">
                 {g.name}
-                {g.required ? <span className="rounded bg-rose-50 px-1.5 py-0.5 text-xs text-rose-600">Verplicht</span>
-                  : <span className="text-xs font-normal text-slate-400">{g.multiple ? "Meerdere mogelijk" : "Optioneel"}</span>}
+                {g.required ? <span className="rounded bg-rose-50 px-1.5 py-0.5 text-xs text-rose-600">{t("Verplicht")}</span>
+                  : <span className="text-xs font-normal text-slate-400">{g.multiple ? t("Meerdere mogelijk") : t("Optioneel")}</span>}
               </p>
               <div className="mt-2 space-y-1.5">
                 {g.options.map((opt) => (
@@ -261,7 +263,7 @@ function OptionsModal({ item, onClose, onAdd }) {
             <button onClick={() => setQty((q) => q + 1)} className="grid h-8 w-8 place-items-center rounded-md hover:bg-slate-100" data-testid="option-qty-plus"><Plus className="h-4 w-4" /></button>
           </div>
           <Button onClick={confirm} className="bg-emerald-600 hover:bg-emerald-700" data-testid="option-add-button">
-            Toevoegen · {euro(unit * qty)}
+            {t("Toevoegen")} · {euro(unit * qty)}
           </Button>
         </div>
       </DialogContent>
@@ -269,19 +271,19 @@ function OptionsModal({ item, onClose, onAdd }) {
   );
 }
 
-function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout }) {
+function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout, t }) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
       <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col bg-white shadow-xl" data-testid="cart-sheet">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-          <h2 className="font-heading text-lg font-bold text-slate-900">Winkelmand</h2>
+          <h2 className="font-heading text-lg font-bold text-slate-900">{t("Winkelmand")}</h2>
           <button onClick={onClose} data-testid="cart-close"><X className="h-5 w-5 text-slate-500" /></button>
         </div>
         <div className="flex-1 overflow-y-auto scroll-thin p-5">
           {cart.length === 0 ? (
-            <p className="py-16 text-center text-slate-500">Je winkelmand is leeg.</p>
+            <p className="py-16 text-center text-slate-500">{t("Je winkelmand is leeg.")}</p>
           ) : (
             <ul className="space-y-4">
               {cart.map((l) => (
@@ -303,9 +305,9 @@ function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout }) {
         </div>
         {cart.length > 0 && (
           <div className="border-t border-slate-200 p-5">
-            <div className="flex justify-between text-sm"><span className="text-slate-500">Subtotaal</span><span className="tabular font-semibold">{euro(subtotal)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-slate-500">{t("Subtotaal")}</span><span className="tabular font-semibold">{euro(subtotal)}</span></div>
             <Button onClick={onCheckout} className="mt-3 w-full bg-emerald-600 py-6 text-base hover:bg-emerald-700" data-testid="cart-checkout-button">
-              Afrekenen <ChevronRight className="ml-1 h-4 w-4" />
+              {t("Afrekenen")} <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
           </div>
         )}
@@ -314,7 +316,7 @@ function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout }) {
   );
 }
 
-function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef }) {
+function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef, t }) {
   const [orderType, setOrderType] = useState(restaurant.pickupEnabled ? "pickup" : "delivery");
   const [customer, setCustomer] = useState({ name: "", phone: "", email: "" });
   const [address, setAddress] = useState({ street: "", houseNumber: "", postalCode: "", city: "", extra: "" });
@@ -330,6 +332,11 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
 
   useEffect(() => { setQuote(null); }, [orderType, address.street, address.houseNumber, address.postalCode, address.city]);
 
+  // Localised delivery-zone message derived from the quote state (not the raw server string).
+  const unavailableMsg = (q) => q?.distanceKm != null
+    ? t("Helaas bezorgen we niet op dit adres.")
+    : t("We konden dit adres niet vinden. Controleer het adres en probeer opnieuw.");
+
   const getQuote = async () => {
     setQuoting(true);
     try {
@@ -338,12 +345,12 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
         deliveryAddress: orderType === "delivery" ? address : null,
       });
       setQuote(data);
-      if (data.available === false) toast.error(data.message);
+      if (data.available === false) toast.error(unavailableMsg(data));
       else if (data.belowMinimum) {
         const amt = euro(data.minimumOrderAmount);
-        toast.error(`Voor bezorging in jouw gebied is een minimum bestelling van ${amt} vereist.`);
+        toast.error(t("Voor bezorging in jouw gebied is een minimum bestelling van {amt} vereist.", { amt }));
       }
-    } catch (e) { toast.error(apiError(e)); } finally { setQuoting(false); }
+    } catch (e) { toast.error(t(apiError(e))); } finally { setQuoting(false); }
   };
 
   const deliveryReady = orderType === "delivery" && address.street && address.houseNumber && address.postalCode && address.city;
@@ -363,85 +370,85 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
         deliveryAddress: orderType === "delivery" ? address : null,
         notes, idempotencyKey: idemRef.current,
       });
-      toast.success("Bestelling geplaatst!");
+      toast.success(t("Bestelling geplaatst!"));
       onSuccess(data);
     } catch (e) {
       idemRef.current = null;
-      toast.error(apiError(e));
+      toast.error(t(apiError(e)));
     } finally { setSubmitting(false); }
   };
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-50 scroll-thin" data-testid="checkout-view">
       <div className="mx-auto max-w-lg px-4 py-6">
-        <button onClick={onBack} className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-600" data-testid="checkout-back"><ArrowLeft className="h-4 w-4" /> Terug naar menu</button>
-        <h1 className="font-heading text-2xl font-bold text-slate-900">Afrekenen</h1>
+        <button onClick={onBack} className="mb-4 inline-flex items-center gap-1 text-sm font-medium text-slate-600" data-testid="checkout-back"><ArrowLeft className="h-4 w-4" /> {t("Terug naar menu")}</button>
+        <h1 className="font-heading text-2xl font-bold text-slate-900">{t("Afrekenen")}</h1>
 
         {/* order type */}
         <div className="mt-5 grid grid-cols-2 gap-2 rounded-xl border border-slate-200 bg-white p-1">
           {restaurant.pickupEnabled && (
             <button onClick={() => setOrderType("pickup")} data-testid="checkout-type-pickup"
               className={`flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium transition-colors ${orderType === "pickup" ? "bg-emerald-600 text-white" : "text-slate-600"}`}>
-              <ShoppingBag className="h-4 w-4" /> Afhalen
+              <ShoppingBag className="h-4 w-4" /> {t("Afhalen")}
             </button>
           )}
           {restaurant.deliveryEnabled && (
             <button onClick={() => setOrderType("delivery")} data-testid="checkout-type-delivery"
               className={`flex items-center justify-center gap-2 rounded-lg py-3 text-sm font-medium transition-colors ${orderType === "delivery" ? "bg-emerald-600 text-white" : "text-slate-600"}`}>
-              <Truck className="h-4 w-4" /> Bezorgen
+              <Truck className="h-4 w-4" /> {t("Bezorgen")}
             </button>
           )}
         </div>
 
         {/* customer */}
         <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-          <h2 className="font-heading font-semibold text-slate-900">Jouw gegevens</h2>
-          <div><Label>Naam</Label><Input value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className="mt-1.5" data-testid="checkout-name" /></div>
-          <div><Label>Telefoon</Label><Input value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="mt-1.5" data-testid="checkout-phone" /></div>
-          <div><Label>E-mail</Label><Input type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="mt-1.5" data-testid="checkout-email" />
-            <p className="mt-1 text-xs text-slate-400">We gebruiken je e-mailadres voor je bestelbevestiging en statusupdates.</p></div>
+          <h2 className="font-heading font-semibold text-slate-900">{t("Jouw gegevens")}</h2>
+          <div><Label>{t("Naam")}</Label><Input value={customer.name} onChange={(e) => setCustomer({ ...customer, name: e.target.value })} className="mt-1.5" data-testid="checkout-name" /></div>
+          <div><Label>{t("Telefoon")}</Label><Input value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} className="mt-1.5" data-testid="checkout-phone" /></div>
+          <div><Label>{t("E-mail")}</Label><Input type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} className="mt-1.5" data-testid="checkout-email" />
+            <p className="mt-1 text-xs text-slate-400">{t("We gebruiken je e-mailadres voor je bestelbevestiging en statusupdates.")}</p></div>
         </div>
 
         {/* delivery address */}
         {orderType === "delivery" && (
           <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-white p-4">
-            <h2 className="font-heading font-semibold text-slate-900">Bezorgadres</h2>
+            <h2 className="font-heading font-semibold text-slate-900">{t("Bezorgadres")}</h2>
             <div className="grid grid-cols-[2fr_1fr] gap-3">
-              <div><Label>Straat</Label><Input value={address.street} onChange={(e) => setAddress({ ...address, street: e.target.value })} className="mt-1.5" data-testid="checkout-street" /></div>
-              <div><Label>Nr.</Label><Input value={address.houseNumber} onChange={(e) => setAddress({ ...address, houseNumber: e.target.value })} className="mt-1.5" data-testid="checkout-housenr" /></div>
+              <div><Label>{t("Straat")}</Label><Input value={address.street} onChange={(e) => setAddress({ ...address, street: e.target.value })} className="mt-1.5" data-testid="checkout-street" /></div>
+              <div><Label>{t("Nr.")}</Label><Input value={address.houseNumber} onChange={(e) => setAddress({ ...address, houseNumber: e.target.value })} className="mt-1.5" data-testid="checkout-housenr" /></div>
             </div>
             <div className="grid grid-cols-[1fr_2fr] gap-3">
-              <div><Label>Postcode</Label><Input value={address.postalCode} onChange={(e) => setAddress({ ...address, postalCode: e.target.value })} className="mt-1.5" data-testid="checkout-postal" /></div>
-              <div><Label>Stad</Label><Input value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} className="mt-1.5" data-testid="checkout-city" /></div>
+              <div><Label>{t("Postcode")}</Label><Input value={address.postalCode} onChange={(e) => setAddress({ ...address, postalCode: e.target.value })} className="mt-1.5" data-testid="checkout-postal" /></div>
+              <div><Label>{t("Stad")}</Label><Input value={address.city} onChange={(e) => setAddress({ ...address, city: e.target.value })} className="mt-1.5" data-testid="checkout-city" /></div>
             </div>
-            <div><Label>Extra info (optioneel)</Label><Input value={address.extra} onChange={(e) => setAddress({ ...address, extra: e.target.value })} placeholder="Bel even aan" className="mt-1.5" /></div>
+            <div><Label>{t("Extra info (optioneel)")}</Label><Input value={address.extra} onChange={(e) => setAddress({ ...address, extra: e.target.value })} placeholder={t("Bel even aan")} className="mt-1.5" /></div>
             <Button onClick={getQuote} disabled={!deliveryReady || quoting} variant="outline" className="w-full border-slate-300" data-testid="checkout-calc-delivery">
-              {quoting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Bereken bezorgkosten
+              {quoting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t("Bereken bezorgkosten")}
             </Button>
-            {quote?.available === false && <p className="rounded-lg bg-rose-50 p-2.5 text-sm font-medium text-rose-700" data-testid="delivery-unavailable-msg">{quote.message}</p>}
-            {quote?.belowMinimum && <p className="rounded-lg bg-amber-50 p-2.5 text-sm font-medium text-amber-800" data-testid="delivery-min-msg">Voor bezorging in jouw gebied is een minimum bestelling van {euro(quote.minimumOrderAmount)} vereist.</p>}
+            {quote?.available === false && <p className="rounded-lg bg-rose-50 p-2.5 text-sm font-medium text-rose-700" data-testid="delivery-unavailable-msg">{unavailableMsg(quote)}</p>}
+            {quote?.belowMinimum && <p className="rounded-lg bg-amber-50 p-2.5 text-sm font-medium text-amber-800" data-testid="delivery-min-msg">{t("Voor bezorging in jouw gebied is een minimum bestelling van {amt} vereist.", { amt: euro(quote.minimumOrderAmount) })}</p>}
           </div>
         )}
 
         {/* notes */}
         <div className="mt-4 rounded-xl border border-slate-200 bg-white p-4">
-          <Label>Opmerkingen (optioneel)</Label>
-          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Geen ui aub." className="mt-1.5" data-testid="checkout-notes" />
+          <Label>{t("Opmerkingen (optioneel)")}</Label>
+          <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={t("Geen ui aub.")} className="mt-1.5" data-testid="checkout-notes" />
         </div>
 
         {/* summary */}
         <div className="mt-4 space-y-1 rounded-xl border border-slate-200 bg-white p-4 text-sm">
-          <div className="flex justify-between text-slate-500"><span>Subtotaal</span><span className="tabular">{euro(subtotal)}</span></div>
+          <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{euro(subtotal)}</span></div>
           {orderType === "delivery" && (
-            <div className="flex justify-between text-slate-500"><span>Bezorgkosten</span><span className="tabular">{quote?.available ? (fee > 0 ? euro(fee) : "Gratis") : "—"}</span></div>
+            <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{quote?.available ? (fee > 0 ? euro(fee) : t("Gratis")) : "—"}</span></div>
           )}
-          <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-bold text-slate-900"><span>Totaal</span><span className="tabular" data-testid="checkout-total">{euro(total)}</span></div>
+          <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-bold text-slate-900"><span>{t("Totaal")}</span><span className="tabular" data-testid="checkout-total">{euro(total)}</span></div>
         </div>
 
         <Button onClick={submit} disabled={!canSubmit || submitting} className="mt-4 w-full bg-emerald-600 py-6 text-base hover:bg-emerald-700" data-testid="checkout-submit-button">
-          {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Bestelling plaatsen
+          {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t("Bestelling plaatsen")}
         </Button>
-        <p className="mt-2 text-center text-xs text-slate-400">Betaling bij {orderType === "delivery" ? "levering" : "afhalen"}.</p>
+        <p className="mt-2 text-center text-xs text-slate-400">{t("Betaling bij {pay}.", { pay: orderType === "delivery" ? t("levering") : t("afhalen") })}</p>
       </div>
     </div>
   );

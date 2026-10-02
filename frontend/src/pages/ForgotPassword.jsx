@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { Loader2, MailCheck } from "lucide-react";
 import api, { apiError } from "../lib/api";
+import { makeT } from "../lib/i18n";
 import { Logo } from "../components/Logo";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -20,7 +21,7 @@ export default function ForgotPassword() {
       await api.post("/auth/forgot-password", { email });
       setSent(true);
     } catch (err) {
-      toast.error(apiError(err));
+      toast.error(makeT("en")(apiError(err)));
     } finally {
       setLoading(false);
     }
