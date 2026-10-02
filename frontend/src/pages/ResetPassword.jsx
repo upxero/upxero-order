@@ -18,11 +18,11 @@ export default function ResetPassword() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (password !== confirm) { toast.error("Wachtwoorden komen niet overeen"); return; }
+    if (password !== confirm) { toast.error("Passwords do not match"); return; }
     setLoading(true);
     try {
       await api.post("/auth/reset-password", { token, password });
-      toast.success("Je wachtwoord is gewijzigd. Log in met je nieuwe wachtwoord.");
+      toast.success("Your password has been changed. Log in with your new password.");
       navigate("/login", { replace: true });
     } catch (err) {
       toast.error(apiError(err));
@@ -35,29 +35,29 @@ export default function ResetPassword() {
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
         <Logo />
-        <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight text-slate-900">Nieuw wachtwoord</h1>
+        <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight text-slate-900">New password</h1>
         {!token ? (
           <p className="mt-4 rounded-lg bg-rose-50 p-3 text-sm font-medium text-rose-700" data-testid="reset-no-token">
-            Ongeldige of ontbrekende resetlink. Vraag een nieuwe aan.
+            Invalid or missing reset link. Request a new one.
           </p>
         ) : (
           <form onSubmit={submit} className="mt-6 space-y-4" data-testid="reset-form">
             <div>
-              <Label htmlFor="password">Nieuw wachtwoord</Label>
+              <Label htmlFor="password">New password</Label>
               <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required
-                minLength={6} placeholder="Minimaal 6 tekens" className="mt-1.5" data-testid="reset-password-input" />
+                minLength={6} placeholder="At least 6 characters" className="mt-1.5" data-testid="reset-password-input" />
             </div>
             <div>
-              <Label htmlFor="confirm">Bevestig wachtwoord</Label>
+              <Label htmlFor="confirm">Confirm password</Label>
               <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required
-                minLength={6} placeholder="Herhaal wachtwoord" className="mt-1.5" data-testid="reset-confirm-input" />
+                minLength={6} placeholder="Repeat password" className="mt-1.5" data-testid="reset-confirm-input" />
             </div>
             <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700" data-testid="reset-submit-button">
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Wachtwoord opslaan
+              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Save password
             </Button>
           </form>
         )}
-        <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="reset-to-login">Terug naar inloggen</Link>
+        <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="reset-to-login">Back to login</Link>
       </div>
     </div>
   );

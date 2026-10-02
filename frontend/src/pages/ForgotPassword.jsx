@@ -33,25 +33,25 @@ export default function ForgotPassword() {
         {sent ? (
           <div className="mt-8 text-center" data-testid="forgot-sent">
             <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-emerald-100 text-emerald-600"><MailCheck className="h-6 w-6" /></span>
-            <h1 className="mt-4 font-heading text-xl font-bold text-slate-900">Controleer je e-mail</h1>
-            <p className="mt-2 text-sm text-slate-500">Als dit e-mailadres bij ons bekend is, hebben we een resetlink verstuurd. De link verloopt binnen 1 uur.</p>
-            <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="forgot-back-login">Terug naar inloggen</Link>
+            <h1 className="mt-4 font-heading text-xl font-bold text-slate-900">Check your email</h1>
+            <p className="mt-2 text-sm text-slate-500">If this email address is known to us, we've sent a reset link. The link expires within 1 hour.</p>
+            <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="forgot-back-login">Back to login</Link>
           </div>
         ) : (
           <>
-            <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight text-slate-900">Wachtwoord vergeten?</h1>
-            <p className="mt-2 text-sm text-slate-500">Vul je e-mailadres in en we sturen je een link om je wachtwoord opnieuw in te stellen.</p>
+            <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight text-slate-900">Forgot password?</h1>
+            <p className="mt-2 text-sm text-slate-500">Enter your email address and we'll send you a link to reset your password.</p>
             <form onSubmit={submit} className="mt-6 space-y-4" data-testid="forgot-form">
               <div>
-                <Label htmlFor="email">E-mailadres</Label>
+                <Label htmlFor="email">Email address</Label>
                 <Input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required
-                  placeholder="jij@restaurant.be" className="mt-1.5" data-testid="forgot-email-input" />
+                  placeholder="you@restaurant.com" className="mt-1.5" data-testid="forgot-email-input" />
               </div>
               <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700" data-testid="forgot-submit-button">
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Verstuur resetlink
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Send reset link
               </Button>
             </form>
-            <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="forgot-to-login">Terug naar inloggen</Link>
+            <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="forgot-to-login">Back to login</Link>
           </>
         )}
       </div>

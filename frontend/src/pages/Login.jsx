@@ -25,10 +25,10 @@ export default function Login() {
     setLoading(true);
     try {
       await login(email, password);
-      toast.success("Welkom terug!");
+      toast.success("Welcome back!");
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      toast.error(apiError(err, "Inloggen mislukt"));
+      toast.error(apiError(err, "Login failed"));
     } finally {
       setLoading(false);
     }
@@ -40,15 +40,15 @@ export default function Login() {
         <div className="mx-auto w-full max-w-sm">
           <Logo />
           <h1 className="mt-10 font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-            Inloggen
+            Log in
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Beheer je menu en bestellingen op één plek.
+            Manage your menu and orders in one place.
           </p>
 
           <form onSubmit={submit} className="mt-8 space-y-4" data-testid="login-form">
             <div>
-              <Label htmlFor="email">E-mailadres</Label>
+              <Label htmlFor="email">Email address</Label>
               <Input
                 id="email"
                 type="email"
@@ -56,16 +56,16 @@ export default function Login() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                placeholder="jij@restaurant.be"
+                placeholder="you@restaurant.com"
                 className="mt-1.5"
                 data-testid="login-email-input"
               />
             </div>
             <div>
               <div className="flex items-center justify-between">
-                <Label htmlFor="password">Wachtwoord</Label>
+                <Label htmlFor="password">Password</Label>
                 <Link to="/wachtwoord-vergeten" className="text-xs font-semibold text-emerald-600 hover:underline" data-testid="login-forgot-link">
-                  Wachtwoord vergeten?
+                  Forgot password?
                 </Link>
               </div>
               <Input
@@ -87,19 +87,19 @@ export default function Login() {
               data-testid="login-submit-button"
             >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Inloggen
+              Log in
             </Button>
           </form>
 
           <p className="mt-6 text-sm text-slate-500">
-            Nog geen account?{" "}
+            No account yet?{" "}
             <Link to="/registreren" className="font-semibold text-emerald-600 hover:underline" data-testid="login-to-register">
-              Registreer je restaurant
+              Register your restaurant
             </Link>
           </p>
 
           <div className="mt-8 rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-            <p className="font-semibold text-slate-600">Demo-account</p>
+            <p className="font-semibold text-slate-600">Demo account</p>
             <p>owner@demo.upxero.com · Demo!2025</p>
           </div>
         </div>
@@ -112,9 +112,9 @@ export default function Login() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/60 to-transparent" />
         <div className="absolute bottom-0 p-12">
-          <p className="font-heading text-2xl font-bold text-white">Commissievrij online bestellen</p>
+          <p className="font-heading text-2xl font-bold text-white">Commission-free online ordering</p>
           <p className="mt-2 max-w-sm text-slate-300">
-            Jouw eigen bestelpagina voor afhalen en bezorgen. Geen commissies, volledige controle.
+            Your own order page for pickup and delivery. No commissions, full control.
           </p>
         </div>
       </div>
