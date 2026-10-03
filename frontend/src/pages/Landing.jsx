@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowRight, Check, Percent, Smartphone, Truck } from "lucide-react";
 import { Logo } from "../components/Logo";
+import { PublicFooter } from "../components/PublicFooter";
 import { Button } from "../components/ui/button";
 
 export default function Landing() {
@@ -79,9 +80,7 @@ export default function Landing() {
         ))}
       </section>
 
-      <footer className="border-t border-slate-200 py-8 text-center text-sm text-slate-400">
-        © {new Date().getFullYear()} Upxero Ordering
-      </footer>
+      <PublicFooter lang="en" />
     </div>
   );
 }

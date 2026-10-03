@@ -333,6 +333,13 @@ export const EN = {
   "Bestand niet gevonden": "File not found",
   "Bestandstype niet toegestaan.": "File type not allowed.",
   "Het bestand is leeg.": "The file is empty.",
+
+  // Legal / info pages chrome
+  "Privacybeleid": "Privacy Policy",
+  "Algemene voorwaarden": "Terms & Conditions",
+  "Cookiebeleid": "Cookie Policy",
+  "Juridisch & bedrijfsinformatie": "Legal & Company Information",
+  "Terug naar home": "Back to home",
 };
 
 const MAPS = { en: EN };

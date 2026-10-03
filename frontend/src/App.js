@@ -23,6 +23,7 @@ import AdminRestaurants from "./pages/dashboard/AdminRestaurants";
 import OrderPage from "./pages/order/OrderPage";
 import OrderConfirmation from "./pages/order/OrderConfirmation";
 import OrderStatus from "./pages/order/OrderStatus";
+import LegalPage from "./pages/legal/LegalPage";
 
 function App() {
   return (
@@ -39,6 +40,12 @@ function App() {
           <Route path="/order/:slug" element={<OrderPage />} />
           <Route path="/order-status/:token" element={<OrderStatus />} />
           <Route path="/order/:slug/bevestiging/:orderId" element={<OrderConfirmation />} />
+
+          <Route path="/privacy" element={<LegalPage page="privacy" />} />
+          <Route path="/terms" element={<LegalPage page="terms" />} />
+          <Route path="/cookies" element={<LegalPage page="cookies" />} />
+          <Route path="/legal" element={<LegalPage page="legal" />} />
+          <Route path="/contact" element={<LegalPage page="contact" />} />
 
           <Route
             path="/dashboard"
