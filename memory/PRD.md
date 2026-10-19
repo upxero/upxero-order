@@ -110,3 +110,11 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - Reset/verification emails use the language picked on the page, falling back to the user's language and then the restaurant default. Staff invites use the inviting restaurant's defaultLanguage. Registration language is saved as the user's language and the restaurant's defaultLanguage.
 - Tested: iteration_10 (backend 12/12, frontend all flows pass). The email provider accepted every send (202). Delivery to an inbox has not been confirmed.
 
+## Platform admin controls + deletion workflow (2026-10-19)
+- Platform → restaurant detail (/dashboard/platform/:id) shows owner, status, creation date, order count, users (allow-listed fields only), deletion requests and audit log. Admins can activate/deactivate (reversible, nothing deleted) and edit essential details. Support mode/impersonation was not built, by the user's choice.
+- Owner deletion requests are under Profile: "account" (refused if the user is the sole admin) or "restaurant". Each needs the password plus typed confirmation, and the owner can withdraw while it's pending. A platform admin approves (by typing the restaurant name) or rejects. At most one pending request per restaurant (partial unique index).
+- What restaurant deletion does: deletes menu items, categories, GridFS files and staff invitations; clears the restaurant's contact details, address and zones, sets isActive false and deletedAt (it can't be reactivated). Orders keep their number, items and totals, but customer name, phone, email, delivery address and notes are anonymised and status tokens removed. Users are anonymised and disabled, and their tokens are deleted.
+- New collections: audit_logs, deletion_requests. Tested in iteration_11.
+- Backlog: formatDateTime always uses the nl-BE locale; the super admin sidebar shows restaurant nav items it can't use; while a restaurant is deactivated, its logo, menu file and item images can still be opened by direct URL.
+
+

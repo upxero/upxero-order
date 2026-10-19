@@ -1,0 +1,39 @@
+{
+  "summary": "Tested platform admin controls (detail view, activate/deactivate, edit essentials, audit log) and the owner deletion-request workflow (account and restaurant types, withdraw, reject, approve with anonymisation), on the backend (new pytest, 11/11 pass, with Mongo-level checks) and on the frontend (Playwright: admin create dialog -> manage -> deactivate -> edit -> reactivate -> reject -> approve; owner Profile deletion card flows). All requested flows work. Authz is enforced: owner and staff get 403 and anonymous gets 401 on every /api/admin/* endpoint, and staff gets 403 on /restaurant/deletion-request. Regression checks passed for login, dashboard pages, Bistro Demo public page, and the register page. Only TEST_ restaurants were mutated, and all of them have been removed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/admin/users", "issue": "Only passwordHash is removed. tokenVersion (and any other internal fields) are still in the response. The new detail endpoint whitelists fields correctly; list_users should do the same."},
+      {"endpoint": "GET /api/public/restaurant/{slug}/logo, /menu-file, /menu-item/{id}/image", "issue": "These do not filter on isActive, so a deactivated restaurant's logo, menu file and item images can still be fetched by direct URL. The main public page/quote/order endpoints correctly return 404."},
+      {"endpoint": "POST /api/restaurant/deletion-request", "issue": "The duplicate-pending check is find_one then insert, with no unique partial index on (restaurantId, status=pending). Two concurrent requests could create two pending requests. Suggest a partial unique index."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin detail / Profile / deletion requests (English UI)", "issues": ["formatDateTime shows Dutch month abbreviations ('19 okt, 18:17') even when the UI language is English."]},
+      {"screen": "Super admin sidebar", "issues": ["Super admin sees restaurant nav items (Orders, Menu, Categories, Delivery, Opening hours, Settings, Profile) even though it has no restaurant. This was already there before this change."]},
+      {"screen": "Admin detail header", "issues": ["Sonner toasts at the top-right overlap the Deactivate/Activate button for a few seconds after an action."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_admin_controls_deletion.py", "/app/backend/tests/cleanup_test_admin_deletion.py", "/app/test_reports/pytest/pytest_admin_deletion.xml"],
+  "action_items": [
+    "Optional: whitelist fields in GET /api/admin/users (drop tokenVersion etc.)",
+    "Optional: return 404 for logo/menu-file/item-image when the restaurant isActive is false or deletedAt is set",
+    "Optional: add a partial unique index for pending deletion_requests per restaurant",
+    "Optional: make formatDateTime use the active UI locale"
+  ],
+  "critical_code_review_comments": [
+    "admin_update_restaurant reuses ProfileReq, so it is a full replace: any omitted optional field resets to its default (defaultLanguage defaults to 'nl'). EditEssentials sends every field, so the UI is safe. Direct API callers sending a partial body would wipe description/address and change the language.",
+    "Deletion: anonymise_user bumps tokenVersion and sets isActive false. Verified that old JWTs return 401 and login returns 401 because passwordHash is empty. Orders keep orderNumber, items and totals. statusTokenHash is removed and the old status link returns 404.",
+    "test_language_defaults.py has 2 failures because Bistro Demo was closed by its opening hours at test time (409 'restaurant is closed'). The test depends on the time of day; this is not a regression. That test also leaks its TEST_LangDefault restaurant when it fails (I cleaned it up)."
+  ],
+  "updated_files": ["/app/backend/tests/test_admin_controls_deletion.py", "/app/backend/tests/cleanup_test_admin_deletion.py"],
+  "success_rate": {"backend": "100% (11/11 new tests; existing suite 21 passed / 2 time-of-day-dependent failures)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Created and then fully deleted: TEST_Resto <rand> x2 (with 2 orders each), TEST_Acct <rand> (2 admins), TEST_UI Resto 21172 E (via the UI), plus a leaked TEST_LangDefault_* restaurant. Their users, orders, menu items, deletion_requests and audit_logs were removed. No real restaurants were modified.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run with: cd /app/backend && set -a && . ./.env && . ../frontend/.env && set +a && python -m pytest tests/test_admin_controls_deletion.py, then python tests/cleanup_test_admin_deletion.py. The test sets the TEST restaurant's opening hours to 00:00-00:00 (open all day) and turns off order emails. Do not mutate real restaurants.",
+  "rca of the issue": ""
+}

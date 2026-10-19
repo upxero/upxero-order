@@ -143,12 +143,8 @@ async def reject_deletion(request_id: str, payload: AdminRejectReq, user: dict =
 @router.get("/users")
 async def list_users(user: dict = Depends(super_only)):
     users = await db.users.find({}).sort("createdAt", -1).to_list(1000)
-    result = []
-    for u in users:
-        d = serialize(u)
-        d.pop("passwordHash", None)
-        result.append(d)
-    return result
+    return [{"id": str(u["_id"]), **{k: u.get(k) for k in USER_FIELDS}, "restaurantId": u.get("restaurantId"),
+             "emailVerified": u.get("emailVerified", True)} for u in users]
 
 
 @router.post("/restaurants")

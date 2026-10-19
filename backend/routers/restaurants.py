@@ -3,6 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 from bson import ObjectId
+from pymongo.errors import DuplicateKeyError
 from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
                      UploadFile)
 
@@ -293,7 +294,10 @@ async def request_deletion(payload: DeletionRequestReq, user: dict = Depends(adm
         "status": "pending",
         "createdAt": now_iso(),
     }
-    res = await db.deletion_requests.insert_one(doc)
+    try:
+        res = await db.deletion_requests.insert_one(doc)
+    except DuplicateKeyError:
+        raise HTTPException(status_code=400, detail="Er staat al een verwijderverzoek open")
     doc["_id"] = res.inserted_id
     await audit(user, rid, "deletion.requested", {"type": payload.type, "requestId": str(res.inserted_id)})
     return {"request": serialize(doc)}
