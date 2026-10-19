@@ -2,15 +2,22 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2, MailWarning } from "lucide-react";
 import api, { apiError } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 export function VerifyEmailBanner({ email, t }) {
   const [loading, setLoading] = useState(false);
+  const { refetch } = useAuth();
 
   const resend = async () => {
     setLoading(true);
     try {
-      await api.post("/auth/resend-verification");
-      toast.success(t("Bevestigingsmail verstuurd"));
+      const { data } = await api.post("/auth/resend-verification");
+      if (data?.alreadyVerified) {
+        toast.success(t("Je e-mailadres is al bevestigd."));
+        refetch();
+      } else {
+        toast.success(t("Bevestigingsmail verstuurd"));
+      }
     } catch (err) {
       toast.error(t(apiError(err)));
     } finally {

@@ -102,3 +102,11 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - **Company data (exact, on /legal)**: Upxero OÜ, Ahtri 12, 10151 Tallinn, Estonia (EU); Registry 16534146; VAT EE102522936; info@upxero.com; https://www.upxero.com; https://order.upxero.com; e-Residency note.
 - **Legal caution**: Terms governing-law clause intentionally left as a bracketed placeholder for Upxero to confirm. Whop mentioned only as possible future third-party checkout (not integrated). No GDPR/compliance/certification over-claims. Owner must review wording before treating as final.
 - **Verified (2026-06)**: all 5 routes load without auth; EN renders cleanly (Privacy/Terms/Contact/Legal screenshots); company block shows exact details + mailto; footer links present on all public pages incl. Landing; desktop + mobile; NL content confirmed shipped in bundle; no analytics/consent/Whop/payment code introduced; backend untouched (git clean). Build compiles successfully.
+
+## Public language selector + email verification + localised auth emails (2026-10-19)
+- EN/NL toggle (LangToggle) on landing, login, register, forgot/reset password, verify-email, staff invite, legal pages; persisted in localStorage `upxero-lang`; `?lang=` in email links overrides & persists. English default.
+- Logo links to `/` (home-logo-link) + "Back to home" (back-home-link) on auth pages.
+- Real email verification: `emailVerified:false` on new registrations, 24h single-use sha256-hashed tokens (`email_verification_tokens`), POST /api/auth/verify-email, POST /api/auth/resend-verification (3 per 15 min; failed sends don't count), dashboard banner with resend, /verify-email page. Existing accounts (no field) count as verified, and login is never blocked.
+- Reset/verification emails use the language picked on the page, falling back to the user's language and then the restaurant default. Staff invites use the inviting restaurant's defaultLanguage. Registration language is saved as the user's language and the restaurant's defaultLanguage.
+- Tested: iteration_10 (backend 12/12, frontend all flows pass). The email provider accepted every send (202). Delivery to an inbox has not been confirmed.
+

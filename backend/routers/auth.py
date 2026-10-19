@@ -260,9 +260,10 @@ async def resend_verification(user: dict = Depends(get_current_user)):
     )
     if recent >= VERIFY_RESENDS_PER_15_MIN:
         raise HTTPException(status_code=429, detail="Te veel verzoeken. Probeer het over een paar minuten opnieuw.")
-    await db.email_verification_requests.insert_one({"user_id": uid, "created_at": now})
+    req = await db.email_verification_requests.insert_one({"user_id": uid, "created_at": now})
     token = await _issue_verification(user)
     if not await send_verification_email(user["email"], token, await _user_lang(user)):
+        await db.email_verification_requests.delete_one({"_id": req.inserted_id})
         raise HTTPException(status_code=502, detail="Bevestigingsmail kon niet worden verstuurd. Probeer het later opnieuw.")
     return {"message": "Bevestigingsmail verstuurd"}
 

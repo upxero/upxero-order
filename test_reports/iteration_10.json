@@ -1,0 +1,36 @@
+{
+  "summary": "Tested EN/NL public-language selector, logo/back-home links, real email verification (tokens, resend, rate limit, banner), localised auth emails (code review), forgot/reset regression, staff invite, existing-account non-lockout, mobile header, plus regressions on /order/bistro-demo and dashboard orders. Backend 12/12 pytest pass; all requested frontend flows pass. No critical or major bugs found.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/resend-verification", "issue": "The rate-limit request is recorded before the send. If the email provider fails (502), that attempt still counts toward the 3 per 15 min limit. Acceptable, but users can get 429 after repeated provider failures."},
+      {"endpoint": "API error messages (all /api/auth/*)", "issue": "Error 'detail' strings are Dutch-only (e.g. 429 'Te veel verzoeken...'). The frontend translates them through i18n.js, so the UI shows them localised, but raw API consumers get Dutch."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "VerifyEmailBanner resend", "issue": "When the API returns {alreadyVerified:true} (e.g. the user verified in another tab), the banner still shows the 'Bevestigingsmail verstuurd' success toast and stays visible. It should show 'Je e-mailadres is al bevestigd.' and call refetch() to hide the banner. That i18n key is also missing from i18n.js.", "affected_selectors": ["[data-testid='verify-email-resend-button']"]}
+    ],
+    "design_issues": [
+      {"screen": "Legal pages (/privacy etc.)", "issues": ["No home-logo-link/back-to-home link. The request only listed auth pages, so this is optional for consistency."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_email_verification_i18n.py", "/app/test_reports/pytest/pytest_iter10.xml"],
+  "action_items": [
+    "Optional: in VerifyEmailBanner handle res.data.alreadyVerified (show 'Je e-mailadres is al bevestigd.' and refetch), and add the EN translation for that key",
+    "Optional: add a home logo link to the legal page header"
+  ],
+  "critical_code_review_comments": [
+    "Verification tokens are stored as sha256 hashes with unique and TTL indexes; single use via atomic find_one_and_update; older unused tokens are invalidated on reissue. Good.",
+    "Existing accounts: emailVerified missing is treated as verified (user.get('emailVerified', True)); the banner only shows when it is strictly false; login is not blocked. Verified for owner and super admin.",
+    "Staff invite passes r.get('defaultLanguage') or 'en' to send_staff_invitation_email (restaurants.py ~line 222); the link gets &lang=; templates come from the AT dict. OK.",
+    "Leftover test.admin.*@example.com users/restaurants from earlier iterations are still in the DB (not created in this iteration)."
+  ],
+  "updated_files": ["/app/backend/tests/test_email_verification_i18n.py"],
+  "success_rate": {"backend": "100% (12/12)", "frontend": "100% of requested flows"},
+  "seed_data_creation": "Created and then deleted: delivered+t10api*@resend.dev, delivered+t10ui@resend.dev, a TEST_noLang user, and their restaurants, tokens and requests. Also deleted main agent's delivered@resend.dev user and its 'TEST_Verify Resto' restaurant. Staff invite delivered+t10staff* removed.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run tests/test_email_verification_i18n.py with backend/.env + frontend/.env exported. It sends about 4 real emails (register, resend, forgot, staff invite); mind the shared limit of 10 per 10 min. UI flows were verified with DB-inserted verification tokens and resend-request docs (to trigger 429 without sending)."
+}

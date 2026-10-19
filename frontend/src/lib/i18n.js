@@ -411,6 +411,7 @@ export const EN = {
   "Bevestig je e-mailadres": "Confirm your email address",
   "We hebben een bevestigingslink gestuurd naar {email}.": "We sent a confirmation link to {email}.",
   "Opnieuw versturen": "Resend",
+  "Je e-mailadres is al bevestigd.": "Your email address is already confirmed.",
   "Bevestigingsmail verstuurd": "Confirmation email sent",
   "Te veel verzoeken. Probeer het over een paar minuten opnieuw.": "Too many requests. Please try again in a few minutes.",
   "Bevestigingsmail kon niet worden verstuurd. Probeer het later opnieuw.": "The confirmation email could not be sent. Please try again later.",
