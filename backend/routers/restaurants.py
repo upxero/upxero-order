@@ -7,9 +7,10 @@ from fastapi import (APIRouter, BackgroundTasks, Depends, File, HTTPException,
                      UploadFile)
 
 from db import db
-from models import (DeliveryReq, InviteStaffReq, OpeningHoursReq, ProfileReq,
-                    SettingsReq, StaffActiveReq)
-from security import require_roles, restaurant_id_of
+from models import (DeletionRequestReq, DeliveryReq, InviteStaffReq,
+                    OpeningHoursReq, ProfileReq, SettingsReq, StaffActiveReq)
+from security import require_roles, restaurant_id_of, verify_password
+from services.audit import audit
 from services.distance import geocode
 from services.email import send_staff_invitation_email
 from services.storage import (IMAGE_MIMES, MENU_FILE_MIMES, delete_file,
@@ -30,8 +31,10 @@ async def my_restaurant(user: dict = Depends(any_staff)):
 
 @router.put("/profile")
 async def update_profile(payload: ProfileReq, user: dict = Depends(admin_only)):
-    rid = restaurant_id_of(user)
-    data = payload.model_dump()
+    return await apply_profile_update(restaurant_id_of(user), payload.model_dump())
+
+
+async def apply_profile_update(rid, data: dict) -> dict:
     # Geocode the restaurant address once when it changes.
     current = await db.restaurants.find_one({"_id": rid})
     addr = f"{data['street']} {data['houseNumber']}, {data['postalCode']} {data['city']}, {data['country']}"
@@ -252,3 +255,58 @@ async def revoke_invitation(invitation_id: str, user: dict = Depends(admin_only)
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Uitnodiging niet gevonden")
     return {"message": "Uitnodiging ingetrokken."}
+
+
+# ---------- Deletion requests (owner side; processed by platform admin) ----------
+
+@router.get("/deletion-request")
+async def my_deletion_request(user: dict = Depends(admin_only)):
+    rid = str(restaurant_id_of(user))
+    doc = await db.deletion_requests.find_one({"restaurantId": rid, "status": "pending"})
+    return {"request": serialize(doc) if doc else None}
+
+
+@router.post("/deletion-request")
+async def request_deletion(payload: DeletionRequestReq, user: dict = Depends(admin_only)):
+    rid = restaurant_id_of(user)
+    r = await db.restaurants.find_one({"_id": rid})
+    if not verify_password(payload.password, user.get("passwordHash", "")):
+        raise HTTPException(status_code=400, detail="Wachtwoord is onjuist")
+    expected = r["name"] if payload.type == "restaurant" else user["email"]
+    if payload.confirmText.strip().lower() != expected.strip().lower():
+        raise HTTPException(status_code=400, detail="De bevestigingstekst komt niet overeen")
+    if await db.deletion_requests.find_one({"restaurantId": str(rid), "status": "pending"}):
+        raise HTTPException(status_code=400, detail="Er staat al een verwijderverzoek open")
+    if payload.type == "account":
+        others = await db.users.count_documents({
+            "restaurantId": str(rid), "role": "restaurant_admin", "isActive": True, "_id": {"$ne": user["_id"]},
+        })
+        if others == 0:
+            raise HTTPException(status_code=400, detail="Je bent de enige beheerder van dit restaurant. Vraag in plaats daarvan sluiting van het restaurant aan.")
+    doc = {
+        "restaurantId": str(rid),
+        "restaurantName": r["name"],
+        "type": payload.type,
+        "reason": (payload.reason or "").strip(),
+        "requestedBy": str(user["_id"]),
+        "requestedByEmail": user["email"],
+        "status": "pending",
+        "createdAt": now_iso(),
+    }
+    res = await db.deletion_requests.insert_one(doc)
+    doc["_id"] = res.inserted_id
+    await audit(user, rid, "deletion.requested", {"type": payload.type, "requestId": str(res.inserted_id)})
+    return {"request": serialize(doc)}
+
+
+@router.delete("/deletion-request")
+async def cancel_deletion_request(user: dict = Depends(admin_only)):
+    rid = str(restaurant_id_of(user))
+    doc = await db.deletion_requests.find_one_and_update(
+        {"restaurantId": rid, "status": "pending"},
+        {"$set": {"status": "cancelled", "processedAt": now_iso()}},
+    )
+    if not doc:
+        raise HTTPException(status_code=404, detail="Geen open verwijderverzoek")
+    await audit(user, rid, "deletion.cancelled", {"type": doc["type"], "requestId": str(doc["_id"])})
+    return {"message": "Verwijderverzoek ingetrokken"}

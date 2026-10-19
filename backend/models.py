@@ -27,6 +27,25 @@ class VerifyEmailReq(BaseModel):
     token: str = Field(min_length=10, max_length=200)
 
 
+class DeletionRequestReq(BaseModel):
+    type: Literal["account", "restaurant"]
+    password: str = Field(min_length=1, max_length=128)
+    confirmText: str = Field(min_length=1, max_length=200)
+    reason: Optional[str] = Field(default="", max_length=1000)
+
+
+class AdminActiveReq(BaseModel):
+    isActive: bool
+
+
+class AdminConfirmReq(BaseModel):
+    confirmText: str = Field(min_length=1, max_length=200)
+
+
+class AdminRejectReq(BaseModel):
+    reason: Optional[str] = Field(default="", max_length=1000)
+
+
 class ResetPasswordReq(BaseModel):
     token: str = Field(min_length=10)
     password: str = Field(min_length=6, max_length=128)

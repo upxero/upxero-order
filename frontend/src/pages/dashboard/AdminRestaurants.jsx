@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Store, Plus, Loader2, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Store, Plus, Loader2, ExternalLink, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
 import { useT } from "../../context/I18nContext";
@@ -10,6 +11,7 @@ import { Card } from "../../components/ui/card";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../../components/ui/dialog";
+import { StatusBadge } from "./AdminRestaurantDetail";
 
 const empty = { restaurantName: "", ownerName: "", email: "", password: "" };
 
@@ -52,9 +54,7 @@ export default function AdminRestaurants() {
             <Card key={r.id} className="rounded-xl border-slate-200 p-5 shadow-sm" data-testid={`admin-restaurant-${r.id}`}>
               <div className="flex items-start justify-between">
                 <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-slate-500"><Store className="h-5 w-5" /></span>
-                <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${r.orderingEnabled ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                  {r.orderingEnabled ? t("Actief") : t("Uit")}
-                </span>
+                <StatusBadge r={r} pending={r.pendingDeletion} />
               </div>
               <p className="mt-3 font-semibold text-slate-900">{r.name}</p>
               <p className="text-sm text-slate-500">{r.city || "—"}</p>
@@ -62,9 +62,14 @@ export default function AdminRestaurants() {
                 <span>{r.orderCount} {t("bestellingen")}</span>
                 <span>{r.userCount} {t("gebruikers")}</span>
               </div>
-              <a href={`/order/${r.slug}`} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-emerald-600 hover:underline">
-                {t("Bestelpagina")} <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                <a href={`/order/${r.slug}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-emerald-600 hover:underline">
+                  {t("Bestelpagina")} <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                <Link to={`/dashboard/platform/${r.id}`} className="inline-flex items-center gap-1 text-sm font-semibold text-slate-700 hover:text-emerald-700" data-testid={`admin-manage-${r.id}`}>
+                  {t("Beheren")} <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
             </Card>
           ))}
         </div>

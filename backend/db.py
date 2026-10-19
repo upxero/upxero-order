@@ -40,6 +40,8 @@ async def ensure_indexes():
     await db.email_verification_tokens.create_index("expires_at", expireAfterSeconds=0)
     await db.email_verification_tokens.create_index("user_id")
     await db.email_verification_requests.create_index("created_at", expireAfterSeconds=900)
+    await db.audit_logs.create_index([("restaurantId", 1), ("createdAt", -1)])
+    await db.deletion_requests.create_index([("restaurantId", 1), ("status", 1)])
     await db.staff_invitations.create_index("expires_at", expireAfterSeconds=0)
     await db.staff_invitations.create_index("restaurantId")
     await db.staff_invitations.create_index("email")

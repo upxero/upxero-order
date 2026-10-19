@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import db
-from models import AdminRestaurantReq
+from models import AdminActiveReq, AdminConfirmReq, AdminRejectReq, AdminRestaurantReq, ProfileReq
+from routers.restaurants import apply_profile_update
 from security import hash_password, require_roles
-from utils import now_iso, serialize, unique_slug
+from services.audit import audit
+from services.deletion import anonymise_user, delete_restaurant_data
+from utils import now_iso, oid, serialize, unique_slug
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -19,13 +22,122 @@ def _default_hours():
 @router.get("/restaurants")
 async def list_restaurants(user: dict = Depends(super_only)):
     restaurants = await db.restaurants.find({}).sort("createdAt", -1).to_list(1000)
+    pending = set(await db.deletion_requests.distinct("restaurantId", {"status": "pending"}))
     out = []
     for r in restaurants:
         data = serialize(r)
         data["orderCount"] = await db.orders.count_documents({"restaurantId": str(r["_id"])})
         data["userCount"] = await db.users.count_documents({"restaurantId": str(r["_id"])})
+        data["pendingDeletion"] = str(r["_id"]) in pending
         out.append(data)
     return out
+
+
+USER_FIELDS = ("email", "name", "role", "isActive", "createdAt", "deletedAt")
+
+
+async def _restaurant_or_404(restaurant_id: str) -> dict:
+    r = await db.restaurants.find_one({"_id": oid(restaurant_id)})
+    if not r:
+        raise HTTPException(status_code=404, detail="Restaurant niet gevonden")
+    return r
+
+
+def _not_deleted(r: dict):
+    if r.get("deletedAt"):
+        raise HTTPException(status_code=400, detail="Dit restaurant is verwijderd en kan niet meer worden gewijzigd.")
+
+
+@router.get("/restaurants/{restaurant_id}")
+async def restaurant_detail(restaurant_id: str, user: dict = Depends(super_only)):
+    r = await _restaurant_or_404(restaurant_id)
+    rid = str(r["_id"])
+    users = await db.users.find({"restaurantId": rid}).sort("createdAt", 1).to_list(500)
+    safe_users = [
+        {"id": str(u["_id"]), **{k: u.get(k) for k in USER_FIELDS}, "emailVerified": u.get("emailVerified", True)}
+        for u in users
+    ]
+    owner = next((u for u in safe_users if u["role"] == "restaurant_admin" and not u.get("deletedAt")), None)
+    requests = await db.deletion_requests.find({"restaurantId": rid}).sort("createdAt", -1).to_list(100)
+    logs = await db.audit_logs.find({"restaurantId": rid}).sort("createdAt", -1).to_list(50)
+    return {
+        "restaurant": serialize(r),
+        "owner": owner,
+        "users": safe_users,
+        "orderCount": await db.orders.count_documents({"restaurantId": rid}),
+        "deletionRequests": [serialize(x) for x in requests],
+        "auditLog": [serialize(x) for x in logs],
+    }
+
+
+@router.patch("/restaurants/{restaurant_id}/active")
+async def set_restaurant_active(restaurant_id: str, payload: AdminActiveReq, user: dict = Depends(super_only)):
+    r = await _restaurant_or_404(restaurant_id)
+    _not_deleted(r)
+    if r.get("isActive", True) != payload.isActive:
+        await db.restaurants.update_one({"_id": r["_id"]}, {"$set": {"isActive": payload.isActive, "updatedAt": now_iso()}})
+        await audit(user, r["_id"], "restaurant.activated" if payload.isActive else "restaurant.deactivated")
+    return {"isActive": payload.isActive}
+
+
+@router.put("/restaurants/{restaurant_id}")
+async def admin_update_restaurant(restaurant_id: str, payload: ProfileReq, user: dict = Depends(super_only)):
+    r = await _restaurant_or_404(restaurant_id)
+    _not_deleted(r)
+    data = payload.model_dump()
+    data.pop("logo", None)
+    changed = sorted(k for k, v in data.items() if r.get(k, "") != v)
+    updated = await apply_profile_update(r["_id"], data)
+    if changed:
+        await audit(user, r["_id"], "restaurant.updated", {"fields": changed})
+    return updated
+
+
+async def _pending_request(request_id: str) -> dict:
+    doc = await db.deletion_requests.find_one({"_id": oid(request_id), "status": "pending"})
+    if not doc:
+        raise HTTPException(status_code=404, detail="Geen open verwijderverzoek")
+    return doc
+
+
+@router.post("/deletion-requests/{request_id}/approve")
+async def approve_deletion(request_id: str, payload: AdminConfirmReq, user: dict = Depends(super_only)):
+    doc = await _pending_request(request_id)
+    r = await _restaurant_or_404(doc["restaurantId"])
+    if payload.confirmText.strip().lower() != r["name"].strip().lower():
+        raise HTTPException(status_code=400, detail="De bevestigingstekst komt niet overeen")
+    if doc["type"] == "restaurant":
+        summary = await delete_restaurant_data(r["_id"])
+    else:
+        target = await db.users.find_one({"_id": oid(doc["requestedBy"]), "restaurantId": doc["restaurantId"]})
+        if not target or target.get("deletedAt"):
+            raise HTTPException(status_code=404, detail="Gebruiker niet gevonden")
+        others = await db.users.count_documents({
+            "restaurantId": doc["restaurantId"], "role": "restaurant_admin", "isActive": True,
+            "_id": {"$ne": target["_id"]},
+        })
+        if others == 0:
+            raise HTTPException(status_code=400, detail="Dit is de enige beheerder van het restaurant. Het account kan niet los worden verwijderd.")
+        await anonymise_user(target)
+        summary = {"usersAnonymised": 1}
+    await db.deletion_requests.update_one(
+        {"_id": doc["_id"]},
+        {"$set": {"status": "completed", "processedAt": now_iso(), "processedBy": str(user["_id"]), "summary": summary}},
+    )
+    await audit(user, r["_id"], "deletion.completed", {"type": doc["type"], "requestId": request_id, **summary})
+    return {"message": "Verwijdering uitgevoerd", "summary": summary}
+
+
+@router.post("/deletion-requests/{request_id}/reject")
+async def reject_deletion(request_id: str, payload: AdminRejectReq, user: dict = Depends(super_only)):
+    doc = await _pending_request(request_id)
+    await db.deletion_requests.update_one(
+        {"_id": doc["_id"]},
+        {"$set": {"status": "rejected", "processedAt": now_iso(), "processedBy": str(user["_id"]),
+                  "rejectReason": (payload.reason or "").strip()}},
+    )
+    await audit(user, doc["restaurantId"], "deletion.rejected", {"type": doc["type"], "requestId": request_id})
+    return {"message": "Verwijderverzoek afgewezen"}
 
 
 @router.get("/users")
@@ -63,4 +175,5 @@ async def create_restaurant(payload: AdminRestaurantReq, user: dict = Depends(su
     }
     await db.users.insert_one(owner)
     restaurant["_id"] = res.inserted_id
+    await audit(user, res.inserted_id, "restaurant.created", {"ownerEmail": email})
     return serialize(restaurant)

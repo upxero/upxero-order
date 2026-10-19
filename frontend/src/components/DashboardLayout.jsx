@@ -162,6 +162,11 @@ export function DashboardLayout() {
           <span className="font-heading text-sm font-semibold text-slate-900">{restaurant?.name || "Upxero"}</span>
         </header>
         <main className="p-4 sm:p-6 lg:p-8">
+          {restaurant?.isActive === false && (
+            <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" data-testid="restaurant-deactivated-banner">
+              <span className="font-semibold">{t("Je restaurant is gedeactiveerd.")}</span> {t("Je bestelpagina is offline. Neem contact op met Upxero voor meer informatie.")}
+            </div>
+          )}
           {user?.emailVerified === false && <VerifyEmailBanner email={user.email} t={t} />}
           <Outlet />
         </main>

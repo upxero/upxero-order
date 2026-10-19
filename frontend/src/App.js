@@ -21,6 +21,7 @@ import Settings from "./pages/dashboard/Settings";
 import Profile from "./pages/dashboard/Profile";
 import Staff from "./pages/dashboard/Staff";
 import AdminRestaurants from "./pages/dashboard/AdminRestaurants";
+import AdminRestaurantDetail from "./pages/dashboard/AdminRestaurantDetail";
 import OrderPage from "./pages/order/OrderPage";
 import OrderConfirmation from "./pages/order/OrderConfirmation";
 import OrderStatus from "./pages/order/OrderStatus";
@@ -78,6 +79,14 @@ function App() {
               element={
                 <ProtectedRoute roles={["super_admin"]}>
                   <AdminRestaurants />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="platform/:id"
+              element={
+                <ProtectedRoute roles={["super_admin"]}>
+                  <AdminRestaurantDetail />
                 </ProtectedRoute>
               }
             />

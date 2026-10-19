@@ -10,12 +10,13 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Textarea } from "../../components/ui/textarea";
 import { Card } from "../../components/ui/card";
+import { AccountDeletion } from "../../components/AccountDeletion";
 
 const IMG_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MENU_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 
 export default function Profile() {
-  const { refetch } = useAuth();
+  const { refetch, user } = useAuth();
   const t = useT();
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
@@ -206,6 +207,8 @@ export default function Profile() {
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t("Opslaan")}
         </Button>
       </div>
+
+      {user?.role === "restaurant_admin" && <AccountDeletion />}
     </div>
   );
 }
