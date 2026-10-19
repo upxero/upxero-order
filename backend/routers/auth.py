@@ -5,11 +5,11 @@ import secrets
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, Response
 
 from db import db
-from models import ForgotPasswordReq, LoginReq, RegisterReq, ResetPasswordReq
+from models import ForgotPasswordReq, LoginReq, RegisterReq, ResetPasswordReq, VerifyEmailReq
 from security import (clear_auth_cookies, create_access_token,
                       create_refresh_token, get_current_user, hash_password,
                       set_auth_cookies, verify_password, _secret, JWT_ALGORITHM)
-from services.email import send_password_reset_email
+from services.email import send_password_reset_email, send_verification_email
 from utils import now_iso, serialize, unique_slug
 import jwt
 from bson import ObjectId
@@ -18,6 +18,39 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 MAX_ATTEMPTS = 5
 LOCK_MINUTES = 15
+VERIFY_HOURS = 24
+VERIFY_RESENDS_PER_15_MIN = 3
+
+
+def _hash(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
+
+
+async def _user_lang(user: dict) -> str:
+    if user.get("language") in ("en", "nl"):
+        return user["language"]
+    if user.get("restaurantId"):
+        r = await db.restaurants.find_one({"_id": ObjectId(str(user["restaurantId"]))}, {"defaultLanguage": 1})
+        if r and r.get("defaultLanguage") == "nl":
+            return "nl"
+    return "en"
+
+
+async def _issue_verification(user: dict) -> str:
+    """Create a fresh single-use token; earlier unused tokens are invalidated."""
+    now = datetime.now(timezone.utc)
+    uid = str(user["_id"])
+    await db.email_verification_tokens.update_many({"user_id": uid, "used": False}, {"$set": {"used": True}})
+    token = secrets.token_urlsafe(32)
+    await db.email_verification_tokens.insert_one({
+        "token_hash": _hash(token),
+        "user_id": uid,
+        "email": user["email"],
+        "expires_at": now + timedelta(hours=VERIFY_HOURS),
+        "used": False,
+        "created_at": now,
+    })
+    return token
 
 
 def _public_user(user: dict) -> dict:
@@ -46,8 +79,9 @@ async def _register_failure(identifier: str, email: str):
 
 
 @router.post("/register")
-async def register(payload: RegisterReq, response: Response):
+async def register(payload: RegisterReq, response: Response, background_tasks: BackgroundTasks):
     email = payload.email.lower().strip()
+    lang = payload.language or "en"
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Dit e-mailadres is al in gebruik")
 
@@ -69,7 +103,7 @@ async def register(payload: RegisterReq, response: Response):
         "deliveryZones": [],
         "freeDeliveryEnabled": False,
         "freeDeliveryThreshold": 0,
-        "defaultLanguage": "en",
+        "defaultLanguage": lang,
         "isActive": True,
         "createdAt": ts, "updatedAt": ts,
     }
@@ -83,10 +117,15 @@ async def register(payload: RegisterReq, response: Response):
         "role": "restaurant_admin",
         "restaurantId": str(restaurant_id),
         "isActive": True,
+        "emailVerified": False,
+        "language": lang,
         "createdAt": ts, "updatedAt": ts,
     }
     ures = await db.users.insert_one(user)
     user["_id"] = ures.inserted_id
+
+    token = await _issue_verification(user)
+    background_tasks.add_task(send_verification_email, email, token, lang)
 
     access = create_access_token(str(ures.inserted_id), email)
     refresh = create_refresh_token(str(ures.inserted_id))
@@ -185,13 +224,52 @@ async def forgot_password(payload: ForgotPasswordReq, background_tasks: Backgrou
         "used": False,
         "created_at": now,
     })
-    background_tasks.add_task(send_password_reset_email, user["email"], token)
+    lang = payload.language or await _user_lang(user)
+    background_tasks.add_task(send_password_reset_email, user["email"], token, lang)
     return generic
+
+
+@router.post("/verify-email")
+async def verify_email(payload: VerifyEmailReq):
+    invalid = "Deze bevestigingslink is ongeldig, verlopen of al gebruikt."
+    now = datetime.now(timezone.utc)
+    doc = await db.email_verification_tokens.find_one_and_update(
+        {"token_hash": _hash(payload.token), "used": False, "expires_at": {"$gt": now}},
+        {"$set": {"used": True, "used_at": now}},
+    )
+    if not doc:
+        raise HTTPException(status_code=400, detail=invalid)
+    res = await db.users.update_one(
+        {"_id": ObjectId(doc["user_id"]), "email": doc["email"]},
+        {"$set": {"emailVerified": True, "emailVerifiedAt": now_iso(), "updatedAt": now_iso()}},
+    )
+    if res.matched_count == 0:
+        raise HTTPException(status_code=400, detail=invalid)
+    return {"message": "E-mailadres bevestigd", "email": doc["email"]}
+
+
+@router.post("/resend-verification")
+async def resend_verification(user: dict = Depends(get_current_user)):
+    # Accounts created before verification existed have no flag and count as verified.
+    if user.get("emailVerified", True):
+        return {"message": "Je e-mailadres is al bevestigd.", "alreadyVerified": True}
+    now = datetime.now(timezone.utc)
+    uid = str(user["_id"])
+    recent = await db.email_verification_requests.count_documents(
+        {"user_id": uid, "created_at": {"$gte": now - timedelta(minutes=15)}}
+    )
+    if recent >= VERIFY_RESENDS_PER_15_MIN:
+        raise HTTPException(status_code=429, detail="Te veel verzoeken. Probeer het over een paar minuten opnieuw.")
+    await db.email_verification_requests.insert_one({"user_id": uid, "created_at": now})
+    token = await _issue_verification(user)
+    if not await send_verification_email(user["email"], token, await _user_lang(user)):
+        raise HTTPException(status_code=502, detail="Bevestigingsmail kon niet worden verstuurd. Probeer het later opnieuw.")
+    return {"message": "Bevestigingsmail verstuurd"}
 
 
 @router.post("/reset-password")
 async def reset_password(payload: ResetPasswordReq):
-    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+    token_hash = _hash(payload.token)
     now = datetime.now(timezone.utc)
     doc = await db.password_reset_tokens.find_one_and_update(
         {"token_hash": token_hash, "used": False, "expires_at": {"$gt": now}},

@@ -20,6 +20,7 @@ import { useAuth } from "../context/AuthContext";
 import { I18nProvider } from "../context/I18nContext";
 import { makeT } from "../lib/i18n";
 import { Logo } from "./Logo";
+import { VerifyEmailBanner } from "./VerifyEmailBanner";
 import { logoUrl, resolveFileUrl } from "../lib/files";
 
 const NAV = [
@@ -161,6 +162,7 @@ export function DashboardLayout() {
           <span className="font-heading text-sm font-semibold text-slate-900">{restaurant?.name || "Upxero"}</span>
         </header>
         <main className="p-4 sm:p-6 lg:p-8">
+          {user?.emailVerified === false && <VerifyEmailBanner email={user.email} t={t} />}
           <Outlet />
         </main>
       </div>

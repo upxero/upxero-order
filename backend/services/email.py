@@ -125,52 +125,105 @@ async def _send(to_email: str, subject: str, html: str) -> bool:
         return False
 
 
-_FOOTER = (f'<p style="font-size:12px;color:#888;margin-top:24px">Verzonden door {escape(EMAIL_FROM_NAME)}. '
-           f'We vragen nooit je wachtwoord per e-mail.</p>')
+def _L(lang):
+    return "nl" if str(lang or "").lower() == "nl" else "en"
 
 
-async def send_password_reset_email(to_email: str, token: str) -> bool:
+# Bilingual auth email strings.
+AT = {
+    "en": {
+        "footer": "Sent by {brand}. We never ask for your password by email.",
+        "reset_h": "Reset your password",
+        "reset_p": "We received a request to reset your {brand} password.",
+        "reset_btn": "Reset password",
+        "reset_note": "This link expires in 1 hour and can be used once. If you didn't request this, you can ignore this email — your password stays unchanged.",
+        "reset_subj": "Reset your {brand} password",
+        "inv_h": "You've been invited",
+        "inv_p": "{inviter} has invited you to help out at <strong>{resto}</strong> on {brand}.",
+        "inv_team": "The team",
+        "inv_btn": "Create account",
+        "inv_note": "Use this link to create your own password. The link expires in 7 days and can be used once.",
+        "inv_subj": "Invitation to {resto} on {brand}",
+        "ver_h": "Confirm your email address",
+        "ver_p": "Welcome to {brand}! Please confirm this is your email address to finish setting up your account.",
+        "ver_btn": "Confirm email address",
+        "ver_note": "This link expires in 24 hours and can be used once. If you didn't create an account, you can ignore this email.",
+        "ver_subj": "Confirm your email address for {brand}",
+    },
+    "nl": {
+        "footer": "Verzonden door {brand}. We vragen nooit je wachtwoord per e-mail.",
+        "reset_h": "Wachtwoord opnieuw instellen",
+        "reset_p": "We ontvingen een verzoek om je {brand}-wachtwoord opnieuw in te stellen.",
+        "reset_btn": "Wachtwoord opnieuw instellen",
+        "reset_note": "Deze link verloopt binnen 1 uur en kan één keer gebruikt worden. Heb je dit niet aangevraagd, negeer dan deze e-mail — je wachtwoord blijft ongewijzigd.",
+        "reset_subj": "Stel je {brand}-wachtwoord opnieuw in",
+        "inv_h": "Je bent uitgenodigd",
+        "inv_p": "{inviter} heeft je uitgenodigd om mee te helpen bij <strong>{resto}</strong> op {brand}.",
+        "inv_team": "Het team",
+        "inv_btn": "Account aanmaken",
+        "inv_note": "Via deze link maak je je eigen wachtwoord aan. De link verloopt binnen 7 dagen en kan één keer gebruikt worden.",
+        "inv_subj": "Uitnodiging voor {resto} op {brand}",
+        "ver_h": "Bevestig je e-mailadres",
+        "ver_p": "Welkom bij {brand}! Bevestig dat dit jouw e-mailadres is om je account af te ronden.",
+        "ver_btn": "E-mailadres bevestigen",
+        "ver_note": "Deze link verloopt binnen 24 uur en kan één keer gebruikt worden. Heb je geen account aangemaakt, negeer dan deze e-mail.",
+        "ver_subj": "Bevestig je e-mailadres voor {brand}",
+    },
+}
+
+
+def _auth_html(heading: str, intro_html: str, link: str, button: str, note: str, footer: str) -> str:
+    return (
+        f'<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#0f172a">'
+        f'<h2 style="margin:0 0 12px">{escape(heading)}</h2>'
+        f'<p>{intro_html}</p>'
+        f'<p style="margin:24px 0"><a href="{escape(link)}" style="background:#059669;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">{escape(button)}</a></p>'
+        f'<p>{escape(note)}</p>'
+        f'<p style="font-size:12px;color:#888;margin-top:24px">{escape(footer)}</p></td></tr></table>'
+    )
+
+
+async def send_password_reset_email(to_email: str, token: str, lang: str = "en") -> bool:
+    code = _L(lang)
     base = os.environ.get("FRONTEND_URL", "").rstrip("/")
-    link = f"{base}/reset-wachtwoord?token={token}"
+    link = f"{base}/reset-wachtwoord?token={token}&lang={code}"
     if not _configured(base, link):
         return False
-    brand = escape(EMAIL_FROM_NAME)
-    html = (
-        f'<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#0f172a">'
-        f'<h2 style="margin:0 0 12px">Wachtwoord opnieuw instellen</h2>'
-        f'<p>We ontvingen een verzoek om je {brand}-wachtwoord opnieuw in te stellen.</p>'
-        f'<p style="margin:24px 0"><a href="{escape(link)}" style="background:#059669;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Wachtwoord opnieuw instellen</a></p>'
-        f'<p>Deze link verloopt binnen 1 uur en kan één keer gebruikt worden. Heb je dit niet aangevraagd, negeer dan deze e-mail — je wachtwoord blijft ongewijzigd.</p>'
-        f'{_FOOTER}</td></tr></table>'
-    )
-    return await _send(to_email, f"Stel je {EMAIL_FROM_NAME}-wachtwoord opnieuw in", html)
+    t = AT[code]
+    html = _auth_html(t["reset_h"], t["reset_p"].format(brand=escape(EMAIL_FROM_NAME)), link,
+                      t["reset_btn"], t["reset_note"], t["footer"].format(brand=EMAIL_FROM_NAME))
+    return await _send(to_email, t["reset_subj"].format(brand=EMAIL_FROM_NAME), html)
 
 
-async def send_staff_invitation_email(to_email: str, token: str, restaurant_name: str, inviter_name: str) -> bool:
+async def send_verification_email(to_email: str, token: str, lang: str = "en") -> bool:
+    code = _L(lang)
     base = os.environ.get("FRONTEND_URL", "").rstrip("/")
-    link = f"{base}/staff-uitnodiging?token={token}"
+    link = f"{base}/verify-email?token={token}&lang={code}"
     if not _configured(base, link):
         return False
+    t = AT[code]
+    html = _auth_html(t["ver_h"], t["ver_p"].format(brand=escape(EMAIL_FROM_NAME)), link,
+                      t["ver_btn"], t["ver_note"], t["footer"].format(brand=EMAIL_FROM_NAME))
+    return await _send(to_email, t["ver_subj"].format(brand=EMAIL_FROM_NAME), html)
+
+
+async def send_staff_invitation_email(to_email: str, token: str, restaurant_name: str, inviter_name: str,
+                                      lang: str = "en") -> bool:
+    code = _L(lang)
+    base = os.environ.get("FRONTEND_URL", "").rstrip("/")
+    link = f"{base}/staff-uitnodiging?token={token}&lang={code}"
+    if not _configured(base, link):
+        return False
+    t = AT[code]
     brand = escape(EMAIL_FROM_NAME)
-    resto = escape(restaurant_name or brand)
-    inviter = escape(inviter_name or "het team")
-    html = (
-        f'<table role="presentation" width="100%"><tr><td style="padding:24px;font-family:Arial,sans-serif;color:#0f172a">'
-        f'<h2 style="margin:0 0 12px">Je bent uitgenodigd</h2>'
-        f'<p>{inviter} heeft je uitgenodigd om mee te helpen bij <strong>{resto}</strong> op {brand}.</p>'
-        f'<p style="margin:24px 0"><a href="{escape(link)}" style="background:#059669;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">Account aanmaken</a></p>'
-        f'<p>Via deze link maak je je eigen wachtwoord aan. De link verloopt binnen 7 dagen en kan één keer gebruikt worden.</p>'
-        f'{_FOOTER}</td></tr></table>'
-    )
-    return await _send(to_email, f"Uitnodiging voor {restaurant_name} op {EMAIL_FROM_NAME}", html)
+    intro = t["inv_p"].format(inviter=escape(inviter_name or t["inv_team"]),
+                              resto=escape(restaurant_name or EMAIL_FROM_NAME), brand=brand)
+    html = _auth_html(t["inv_h"], intro, link, t["inv_btn"], t["inv_note"], t["footer"].format(brand=EMAIL_FROM_NAME))
+    return await _send(to_email, t["inv_subj"].format(resto=restaurant_name, brand=EMAIL_FROM_NAME), html)
 
 
 def _eur(v):
     return "€" + ("%.2f" % float(v or 0)).replace(".", ",")
-
-
-def _L(lang):
-    return "nl" if str(lang or "").lower() == "nl" else "en"
 
 
 # Bilingual email strings (restaurant-owned content like names is never translated).

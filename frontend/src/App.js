@@ -10,6 +10,7 @@ import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 import StaffInvitation from "./pages/StaffInvitation";
+import VerifyEmail from "./pages/VerifyEmail";
 import Overview from "./pages/dashboard/Overview";
 import Orders from "./pages/dashboard/Orders";
 import MenuItems from "./pages/dashboard/MenuItems";
@@ -37,6 +38,7 @@ function App() {
           <Route path="/wachtwoord-vergeten" element={<ForgotPassword />} />
           <Route path="/reset-wachtwoord" element={<ResetPassword />} />
           <Route path="/staff-uitnodiging" element={<StaffInvitation />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/order/:slug" element={<OrderPage />} />
           <Route path="/order-status/:token" element={<OrderStatus />} />
           <Route path="/order/:slug/bevestiging/:orderId" element={<OrderConfirmation />} />

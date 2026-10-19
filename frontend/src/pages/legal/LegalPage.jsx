@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Logo } from "../../components/Logo";
+import { LangToggle } from "../../components/LangToggle";
+import { usePublicLang } from "../../lib/publicLang";
 import { PublicFooter } from "../../components/PublicFooter";
 import { makeT } from "../../lib/i18n";
 import { LEGAL, COMPANY } from "../../lib/legalContent";
-
-const STORE_KEY = "upxero-legal-lang";
 
 function Section({ s }) {
   return (
@@ -63,14 +62,8 @@ function CompanyBlock() {
 }
 
 export default function LegalPage({ page }) {
-  const [lang, setLang] = useState(() => {
-    try { return localStorage.getItem(STORE_KEY) === "nl" ? "nl" : "en"; } catch { return "en"; }
-  });
+  const [lang, setLang] = usePublicLang();
   const t = makeT(lang);
-  const setLanguage = (l) => {
-    setLang(l);
-    try { localStorage.setItem(STORE_KEY, l); } catch { /* ignore */ }
-  };
 
   const content = LEGAL[page][lang] || LEGAL[page].en;
 
@@ -79,15 +72,7 @@ export default function LegalPage({ page }) {
       <header className="border-b border-slate-200">
         <div className="mx-auto flex max-w-3xl items-center justify-between px-6 py-4">
           <Link to="/" data-testid="legal-home-link"><Logo /></Link>
-          <div className="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5 text-xs font-semibold" data-testid="legal-lang-toggle">
-            {["en", "nl"].map((l) => (
-              <button key={l} onClick={() => setLanguage(l)}
-                data-testid={`legal-lang-${l}`}
-                className={`rounded-md px-2.5 py-1 transition-colors ${lang === l ? "bg-emerald-600 text-white" : "text-slate-500 hover:text-slate-800"}`}>
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
+          <LangToggle lang={lang} setLang={setLang} prefix="legal-lang" />
         </div>
       </header>
 

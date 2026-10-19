@@ -5,7 +5,8 @@ import { Loader2 } from "lucide-react";
 import api, { apiError } from "../lib/api";
 import { makeT } from "../lib/i18n";
 import { useAuth } from "../context/AuthContext";
-import { Logo } from "../components/Logo";
+import { usePublicLang } from "../lib/publicLang";
+import { AuthTopBar, BackHome } from "../components/AuthTopBar";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -15,6 +16,8 @@ export default function StaffInvitation() {
   const token = params.get("token") || "";
   const navigate = useNavigate();
   const { refetch } = useAuth();
+  const [lang, setLang] = usePublicLang();
+  const t = makeT(lang);
   const [invite, setInvite] = useState(undefined); // undefined=loading, null=invalid
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -30,51 +33,52 @@ export default function StaffInvitation() {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (password !== confirm) { toast.error("Passwords do not match"); return; }
+    if (password !== confirm) { toast.error(t("Wachtwoorden komen niet overeen")); return; }
     setLoading(true);
     try {
       await api.post("/public/invitation/accept", { token, name, password });
-      toast.success("Account created! Welcome to the team.");
+      toast.success(t("Account aangemaakt! Welkom in het team."));
       await refetch();
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      toast.error(makeT("en")(apiError(err)));
+      toast.error(t(apiError(err)));
     } finally { setLoading(false); }
   };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
       <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <Logo />
+        <AuthTopBar lang={lang} setLang={setLang} />
+        <BackHome lang={lang} />
         {invite === undefined ? (
           <div className="grid place-items-center py-10"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>
         ) : invite === null ? (
           <div className="mt-8" data-testid="invite-invalid">
-            <h1 className="font-heading text-xl font-bold text-slate-900">Invalid invitation</h1>
-            <p className="mt-2 text-sm text-slate-500">This invitation is invalid, expired or already used. Ask the restaurant owner for a new one.</p>
-            <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="invite-to-login">To login</Link>
+            <h1 className="font-heading text-xl font-bold text-slate-900">{t("Ongeldige uitnodiging")}</h1>
+            <p className="mt-2 text-sm text-slate-500">{t("Deze uitnodiging is ongeldig, verlopen of al gebruikt. Vraag de restauranteigenaar om een nieuwe.")}</p>
+            <Link to="/login" className="mt-6 inline-block text-sm font-semibold text-emerald-600 hover:underline" data-testid="invite-to-login">{t("Naar inloggen")}</Link>
           </div>
         ) : (
           <>
-            <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight text-slate-900">Create account</h1>
+            <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight text-slate-900">{t("Account aanmaken")}</h1>
             <p className="mt-2 text-sm text-slate-500">
-              You've been invited to <span className="font-semibold text-slate-700">{invite.restaurantName}</span>. Create your password for <span className="font-medium">{invite.email}</span>.
+              {t("Je bent uitgenodigd voor")} <span className="font-semibold text-slate-700">{invite.restaurantName}</span>. {t("Maak je wachtwoord aan voor")} <span className="font-medium">{invite.email}</span>.
             </p>
             <form onSubmit={submit} className="mt-6 space-y-4" data-testid="accept-form">
               <div>
-                <Label htmlFor="name">Your name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder="First Last" className="mt-1.5" data-testid="accept-name-input" />
+                <Label htmlFor="name">{t("Je naam")}</Label>
+                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required placeholder={t("Voornaam Achternaam")} className="mt-1.5" data-testid="accept-name-input" />
               </div>
               <div>
-                <Label htmlFor="password">Password</Label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder="At least 6 characters" className="mt-1.5" data-testid="accept-password-input" />
+                <Label htmlFor="password">{t("Wachtwoord")}</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} placeholder={t("Minimaal 6 tekens")} className="mt-1.5" data-testid="accept-password-input" />
               </div>
               <div>
-                <Label htmlFor="confirm">Confirm password</Label>
-                <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={6} placeholder="Repeat password" className="mt-1.5" data-testid="accept-confirm-input" />
+                <Label htmlFor="confirm">{t("Bevestig wachtwoord")}</Label>
+                <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={6} placeholder={t("Herhaal wachtwoord")} className="mt-1.5" data-testid="accept-confirm-input" />
               </div>
               <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700" data-testid="accept-submit-button">
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} Create account
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t("Account aanmaken")}
               </Button>
             </form>
           </>

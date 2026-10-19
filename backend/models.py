@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -10,6 +10,7 @@ class RegisterReq(BaseModel):
     name: str = Field(min_length=2, max_length=80)
     email: EmailStr
     password: str = Field(min_length=6, max_length=128)
+    language: Optional[Literal["en", "nl"]] = None
 
 
 class LoginReq(BaseModel):
@@ -19,6 +20,11 @@ class LoginReq(BaseModel):
 
 class ForgotPasswordReq(BaseModel):
     email: EmailStr
+    language: Optional[Literal["en", "nl"]] = None
+
+
+class VerifyEmailReq(BaseModel):
+    token: str = Field(min_length=10, max_length=200)
 
 
 class ResetPasswordReq(BaseModel):

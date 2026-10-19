@@ -5,7 +5,8 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { apiError } from "../lib/api";
 import { makeT } from "../lib/i18n";
-import { Logo } from "../components/Logo";
+import { usePublicLang } from "../lib/publicLang";
+import { AuthTopBar, BackHome } from "../components/AuthTopBar";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
@@ -13,6 +14,8 @@ import { Label } from "../components/ui/label";
 export default function Register() {
   const { register, user } = useAuth();
   const navigate = useNavigate();
+  const [lang, setLang] = usePublicLang();
+  const t = makeT(lang);
   const [form, setForm] = useState({ restaurantName: "", name: "", email: "", password: "" });
   const [loading, setLoading] = useState(false);
 
@@ -26,11 +29,11 @@ export default function Register() {
     e.preventDefault();
     setLoading(true);
     try {
-      await register(form);
-      toast.success("Restaurant created! Welcome to Upxero Ordering.");
+      await register({ ...form, language: lang });
+      toast.success(t("Restaurant aangemaakt! Check je inbox om je e-mailadres te bevestigen."));
       navigate("/dashboard", { replace: true });
     } catch (err) {
-      toast.error(makeT("en")(apiError(err, "Registration failed")));
+      toast.error(t(apiError(err, "Registratie mislukt")));
     } finally {
       setLoading(false);
     }
@@ -39,47 +42,42 @@ export default function Register() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
       <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <Logo />
-        <h1 className="mt-8 font-heading text-2xl font-bold tracking-tight text-slate-900">
-          Register your restaurant
-        </h1>
-        <p className="mt-2 text-sm text-slate-500">
-          Create an account and your restaurant is set up instantly.
-        </p>
+        <AuthTopBar lang={lang} setLang={setLang} />
+        <BackHome lang={lang} />
+        <h1 className="mt-6 font-heading text-2xl font-bold tracking-tight text-slate-900">{t("Registreer je restaurant")}</h1>
+        <p className="mt-2 text-sm text-slate-500">{t("Maak een account aan en je restaurant staat meteen klaar.")}</p>
 
         <form onSubmit={submit} className="mt-6 space-y-4" data-testid="register-form">
           <div>
-            <Label htmlFor="restaurantName">Restaurant name</Label>
+            <Label htmlFor="restaurantName">{t("Naam restaurant")}</Label>
             <Input id="restaurantName" value={form.restaurantName} onChange={upd("restaurantName")} required
               placeholder="Bistro De Hoek" className="mt-1.5" data-testid="register-restaurant-input" />
           </div>
           <div>
-            <Label htmlFor="name">Your name</Label>
+            <Label htmlFor="name">{t("Je naam")}</Label>
             <Input id="name" value={form.name} onChange={upd("name")} required
-              placeholder="John Smith" className="mt-1.5" data-testid="register-name-input" />
+              placeholder={t("Jan Jansen")} className="mt-1.5" data-testid="register-name-input" />
           </div>
           <div>
-            <Label htmlFor="email">Email address</Label>
+            <Label htmlFor="email">{t("E-mailadres")}</Label>
             <Input id="email" type="email" value={form.email} onChange={upd("email")} required
-              placeholder="you@restaurant.com" className="mt-1.5" data-testid="register-email-input" />
+              placeholder={t("jij@restaurant.nl")} className="mt-1.5" data-testid="register-email-input" />
           </div>
           <div>
-            <Label htmlFor="password">Password</Label>
+            <Label htmlFor="password">{t("Wachtwoord")}</Label>
             <Input id="password" type="password" value={form.password} onChange={upd("password")} required
-              minLength={6} placeholder="At least 6 characters" className="mt-1.5" data-testid="register-password-input" />
+              minLength={6} placeholder={t("Minimaal 6 tekens")} className="mt-1.5" data-testid="register-password-input" />
           </div>
-          <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700"
-            data-testid="register-submit-button">
+          <p className="text-xs text-slate-500">{t("We sturen je een e-mail om je adres te bevestigen.")}</p>
+          <Button type="submit" disabled={loading} className="w-full bg-emerald-600 hover:bg-emerald-700" data-testid="register-submit-button">
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create account
+            {t("Account aanmaken")}
           </Button>
         </form>
 
         <p className="mt-6 text-sm text-slate-500">
-          Already have an account?{" "}
-          <Link to="/login" className="font-semibold text-emerald-600 hover:underline" data-testid="register-to-login">
-            Log in
-          </Link>
+          {t("Heb je al een account?")}{" "}
+          <Link to="/login" className="font-semibold text-emerald-600 hover:underline" data-testid="register-to-login">{t("Inloggen")}</Link>
         </p>
       </div>
     </div>

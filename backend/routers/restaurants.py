@@ -219,7 +219,7 @@ async def invite_staff(payload: InviteStaffReq, background_tasks: BackgroundTask
         "createdAt": now,
     })
     r = await db.restaurants.find_one({"_id": rid})
-    background_tasks.add_task(send_staff_invitation_email, email, token, r["name"], user.get("name", ""))
+    background_tasks.add_task(send_staff_invitation_email, email, token, r["name"], user.get("name", ""), r.get("defaultLanguage") or "en")
     return {"message": "Uitnodiging verstuurd.", "email": email}
 
 
