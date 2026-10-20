@@ -92,11 +92,11 @@ export function AccountDeletion() {
         </div>
       ) : (
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setDialog("account")} className="border-rose-200 text-rose-700 hover:bg-rose-50" data-testid="delete-account-button">
-            <UserX className="mr-2 h-4 w-4" /> {t(TITLES.account)}
+          <Button variant="outline" onClick={() => setDialog("account")} className="h-auto whitespace-normal border-rose-200 py-2 text-left text-rose-700 hover:bg-rose-50" data-testid="delete-account-button">
+            <UserX className="mr-2 h-4 w-4 shrink-0" /> {t(TITLES.account)}
           </Button>
-          <Button variant="outline" onClick={() => setDialog("restaurant")} className="border-rose-200 text-rose-700 hover:bg-rose-50" data-testid="delete-restaurant-button">
-            <Trash2 className="mr-2 h-4 w-4" /> {t(TITLES.restaurant)}
+          <Button variant="outline" onClick={() => setDialog("restaurant")} className="h-auto whitespace-normal border-rose-200 py-2 text-left text-rose-700 hover:bg-rose-50" data-testid="delete-restaurant-button">
+            <Trash2 className="mr-2 h-4 w-4 shrink-0" /> {t(TITLES.restaurant)}
           </Button>
         </div>
       )}

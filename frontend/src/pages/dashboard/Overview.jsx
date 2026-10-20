@@ -70,8 +70,8 @@ export default function Overview() {
         <Stat icon={CheckCircle2} label={t("Afgerond vandaag")} value={stats?.completedToday ?? "—"} tone="emerald" testid="stat-completed-today" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card className="rounded-xl border-slate-200 p-5 shadow-sm lg:col-span-2">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="min-w-0 rounded-xl border-slate-200 p-5 shadow-sm lg:col-span-2">
           <h2 className="font-heading text-lg font-semibold text-slate-900">{t("Status van je zaak")}</h2>
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
             <StatusPill on={stats?.orderingEnabled} icon={Power} label={t("Online bestellen")} t={t} />
@@ -91,10 +91,10 @@ export default function Overview() {
           </div>
         </Card>
 
-        <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
+        <Card className="min-w-0 rounded-xl border-slate-200 p-5 shadow-sm">
           <h2 className="font-heading text-lg font-semibold text-slate-900">{t("Jouw bestellink")}</h2>
           <p className="mt-1 text-sm text-slate-500">{t("Deel deze link of maak er een QR-code van.")}</p>
-          <div className="mt-4 flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="mt-4 flex min-w-0 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
             <span className="truncate text-xs text-slate-600" data-testid="order-link">{orderUrl}</span>
           </div>
           <button onClick={copyLink} data-testid="copy-order-link"

@@ -51,7 +51,7 @@ export function DashboardLayout() {
 
   const navItems = (
     <nav className="flex flex-col gap-1 px-3">
-      {NAV.map(({ to, label, icon: Icon, end, id }) => (
+      {user?.role !== "super_admin" && NAV.map(({ to, label, icon: Icon, end, id }) => (
         <NavLink
           key={to}
           to={to}
@@ -161,7 +161,7 @@ export function DashboardLayout() {
           <Logo compact src={logoSrc} alt={restaurant?.name} />
           <span className="font-heading text-sm font-semibold text-slate-900">{restaurant?.name || "Upxero"}</span>
         </header>
-        <main className="p-4 sm:p-6 lg:p-8">
+        <main className="min-w-0 p-4 sm:p-6 lg:p-8">
           {restaurant?.isActive === false && (
             <div className="mb-6 rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" data-testid="restaurant-deactivated-banner">
               <span className="font-semibold">{t("Je restaurant is gedeactiveerd.")}</span> {t("Je bestelpagina is offline. Neem contact op met Upxero voor meer informatie.")}

@@ -1,3 +1,6 @@
+import os
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import db
@@ -5,7 +8,7 @@ from models import AdminActiveReq, AdminConfirmReq, AdminRejectReq, AdminRestaur
 from routers.restaurants import apply_profile_update
 from security import hash_password, require_roles
 from services.audit import audit
-from services.deletion import anonymise_user, delete_restaurant_data
+from services.deletion import anonymise_user, delete_restaurant_data, purge_restaurant
 from utils import now_iso, oid, serialize, unique_slug
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -21,7 +24,7 @@ def _default_hours():
 
 @router.get("/restaurants")
 async def list_restaurants(user: dict = Depends(super_only)):
-    restaurants = await db.restaurants.find({}).sort("createdAt", -1).to_list(1000)
+    restaurants = await db.restaurants.find({"deletedAt": None}).sort("createdAt", -1).to_list(1000)
     pending = set(await db.deletion_requests.distinct("restaurantId", {"status": "pending"}))
     out = []
     for r in restaurants:
@@ -34,6 +37,44 @@ async def list_restaurants(user: dict = Depends(super_only)):
 
 
 USER_FIELDS = ("email", "name", "role", "isActive", "createdAt", "deletedAt")
+RETENTION_DAYS = int(os.environ["DELETION_RETENTION_DAYS"])
+
+
+def _purge_eligible_at(r: dict) -> datetime:
+    return datetime.fromisoformat(r["deletedAt"]) + timedelta(days=RETENTION_DAYS)
+
+
+@router.get("/restaurants/archived")
+async def archived_restaurants(user: dict = Depends(super_only)):
+    rs = await db.restaurants.find({"deletedAt": {"$ne": None}}).sort("deletedAt", -1).to_list(1000)
+    now = datetime.now(timezone.utc)
+    out = []
+    for r in rs:
+        eligible = _purge_eligible_at(r)
+        out.append({
+            "id": str(r["_id"]), "name": r.get("name"), "slug": r.get("slug"),
+            "deletedAt": r["deletedAt"], "purgedAt": r.get("purgedAt"),
+            "purgeEligibleAt": eligible.isoformat(),
+            "canPurge": not r.get("purgedAt") and now >= eligible,
+            "orderCount": await db.orders.count_documents({"restaurantId": str(r["_id"])}),
+        })
+    return {"retentionDays": RETENTION_DAYS, "restaurants": out}
+
+
+@router.post("/restaurants/{restaurant_id}/purge")
+async def purge_archived_restaurant(restaurant_id: str, payload: AdminConfirmReq, user: dict = Depends(super_only)):
+    r = await _restaurant_or_404(restaurant_id)
+    if not r.get("deletedAt"):
+        raise HTTPException(status_code=400, detail="Alleen verwijderde (gearchiveerde) restaurants kunnen definitief worden gewist.")
+    if payload.confirmText.strip().lower() != (r.get("name") or "").strip().lower():
+        raise HTTPException(status_code=400, detail="De bevestigingstekst komt niet overeen")
+    if r.get("purgedAt"):
+        return {"message": "Restaurant is al definitief gewist", "alreadyPurged": True}
+    if datetime.now(timezone.utc) < _purge_eligible_at(r):
+        raise HTTPException(status_code=400, detail="Definitief wissen kan pas na afloop van de bewaartermijn.")
+    summary = await purge_restaurant(r)
+    await audit(user, r["_id"], "restaurant.purged", summary)
+    return {"message": "Restaurant definitief gewist", "summary": summary}
 
 
 async def _restaurant_or_404(restaurant_id: str) -> dict:

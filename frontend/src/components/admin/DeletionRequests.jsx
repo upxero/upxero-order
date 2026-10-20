@@ -73,7 +73,7 @@ export function DeletionRequests({ requests, restaurantName, onChange }) {
             <li key={r.id} className="flex flex-col gap-2 py-3 sm:flex-row sm:items-center sm:justify-between" data-testid={`deletion-request-${r.id}`}>
               <div className="text-sm">
                 <p className="font-semibold text-slate-900">{t(TYPE[r.type])} · <span className="text-slate-500">{t(STATUS[r.status])}</span></p>
-                <p className="text-slate-500">{r.requestedByEmail} · {formatDateTime(r.createdAt)}</p>
+                <p className="break-all text-slate-500">{r.requestedByEmail} · {formatDateTime(r.createdAt)}</p>
                 {r.reason && <p className="mt-1 text-slate-600">“{r.reason}”</p>}
               </div>
               {r.status === "pending" && (

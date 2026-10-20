@@ -35,27 +35,41 @@ async def anonymise_user(user: dict) -> str:
     return new_email
 
 
-async def delete_restaurant_data(rid: ObjectId) -> dict:
-    rid_s = str(rid)
-    ts = now_iso()
-
+async def _cleanup_assets(rid_s: str) -> dict:
     files = await db["uploads.files"].find({"metadata.restaurantId": rid_s}, {"_id": 1}).to_list(100000)
     for f in files:
         await delete_file(f["_id"])
     items = await db.menu_items.delete_many({"restaurantId": rid_s})
     cats = await db.menu_categories.delete_many({"restaurantId": rid_s})
     invites = await db.staff_invitations.delete_many({"restaurantId": rid_s})
+    return {
+        "filesDeleted": len(files),
+        "menuItemsDeleted": items.deleted_count,
+        "categoriesDeleted": cats.deleted_count,
+        "invitationsDeleted": invites.deleted_count,
+    }
 
-    users = await db.users.find({"restaurantId": rid_s, "deletedAt": {"$exists": False}}).to_list(1000)
-    for u in users:
-        await anonymise_user(u)
 
-    orders = await db.orders.update_many(
+async def _anonymise_orders(rid_s: str, ts: str) -> int:
+    res = await db.orders.update_many(
         {"restaurantId": rid_s, "anonymisedAt": {"$exists": False}},
         {"$set": {"customer.name": ANON_CUSTOMER, "customer.phone": "", "customer.email": "",
                   "deliveryAddress": None, "notes": "", "anonymisedAt": ts},
          "$unset": {"statusTokenHash": "", "statusTokenExpiresAt": "", "statusToken": "", "idempotencyKey": ""}},
     )
+    return res.modified_count
+
+
+async def delete_restaurant_data(rid: ObjectId) -> dict:
+    rid_s = str(rid)
+    ts = now_iso()
+    assets = await _cleanup_assets(rid_s)
+
+    users = await db.users.find({"restaurantId": rid_s, "deletedAt": {"$exists": False}}).to_list(1000)
+    for u in users:
+        await anonymise_user(u)
+
+    orders = await _anonymise_orders(rid_s, ts)
 
     await db.restaurants.update_one(
         {"_id": rid},
@@ -66,10 +80,34 @@ async def delete_restaurant_data(rid: ObjectId) -> dict:
          "$unset": {"logoFileId": "", "menuFileId": "", "menuFileName": "", "menuFileType": ""}},
     )
     return {
-        "filesDeleted": len(files),
-        "menuItemsDeleted": items.deleted_count,
-        "categoriesDeleted": cats.deleted_count,
-        "invitationsDeleted": invites.deleted_count,
+        **assets,
         "usersAnonymised": len(users),
-        "ordersAnonymised": orders.modified_count,
+        "ordersAnonymised": orders,
     }
+
+
+TOMBSTONE_FIELDS = ("name", "slug", "country", "createdAt", "deletedAt")
+
+
+async def purge_restaurant(r: dict) -> dict:
+    """Permanent purge of an archived restaurant. Idempotent; orders are retained (anonymised)."""
+    rid_s = str(r["_id"])
+    ts = now_iso()
+    assets = await _cleanup_assets(rid_s)
+    orders = await _anonymise_orders(rid_s, ts)
+    users = await db.users.find({"restaurantId": rid_s}).to_list(1000)
+    for u in users:
+        if not u.get("deletedAt"):
+            await anonymise_user(u)
+        uid = str(u["_id"])
+        await db.password_reset_tokens.delete_many({"user_id": uid})
+        await db.email_verification_tokens.delete_many({"user_id": uid})
+        await db.email_verification_requests.delete_many({"user_id": uid})
+    users_deleted = (await db.users.delete_many({"restaurantId": rid_s})).deleted_count
+    await db.counters.delete_one({"_id": f"orders:{rid_s}"})
+
+    tombstone = {k: r.get(k) for k in TOMBSTONE_FIELDS}
+    tombstone.update({"isActive": False, "orderingEnabled": False, "pickupEnabled": False,
+                      "deliveryEnabled": False, "purgedAt": ts, "updatedAt": ts})
+    await db.restaurants.replace_one({"_id": r["_id"]}, tombstone)
+    return {**assets, "ordersAnonymised": orders, "userRecordsDeleted": users_deleted}

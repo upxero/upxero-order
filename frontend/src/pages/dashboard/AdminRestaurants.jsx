@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "../../components/ui/dialog";
 import { StatusBadge } from "./AdminRestaurantDetail";
+import { ArchivedRestaurants } from "../../components/admin/ArchivedRestaurants";
 
 const empty = { restaurantName: "", ownerName: "", email: "", password: "" };
 
@@ -36,7 +37,7 @@ export default function AdminRestaurants() {
 
   return (
     <div className="space-y-6" data-testid="admin-page">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t("Platform")}</h1>
           <p className="mt-1 text-sm text-slate-500">{t("Beheer restaurants op het Upxero-platform.")}</p>
@@ -74,6 +75,8 @@ export default function AdminRestaurants() {
           ))}
         </div>
       )}
+
+      <ArchivedRestaurants />
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md" data-testid="admin-dialog">

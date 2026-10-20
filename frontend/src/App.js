@@ -12,6 +12,16 @@ import ResetPassword from "./pages/ResetPassword";
 import StaffInvitation from "./pages/StaffInvitation";
 import VerifyEmail from "./pages/VerifyEmail";
 import Overview from "./pages/dashboard/Overview";
+import { ScrollToTop } from "./components/ScrollToTop";
+import { useAuth } from "./context/AuthContext";
+
+const RESTAURANT_ROLES = ["restaurant_admin", "restaurant_staff"];
+const forRestaurant = (el) => <ProtectedRoute roles={RESTAURANT_ROLES}>{el}</ProtectedRoute>;
+
+function DashboardIndex() {
+  const { user } = useAuth();
+  return user?.role === "super_admin" ? <Navigate to="/dashboard/platform" replace /> : <Overview />;
+}
 import Orders from "./pages/dashboard/Orders";
 import MenuItems from "./pages/dashboard/MenuItems";
 import Categories from "./pages/dashboard/Categories";
@@ -32,6 +42,7 @@ function App() {
     <AuthProvider>
       <Toaster position="top-right" richColors closeButton />
       <BrowserRouter>
+        <ScrollToTop />
         <Routes>
           <Route path="/" element={<Landing />} />
           <Route path="/login" element={<Login />} />
@@ -58,14 +69,14 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Overview />} />
-            <Route path="bestellingen" element={<Orders />} />
-            <Route path="menu" element={<MenuItems />} />
-            <Route path="categorieen" element={<Categories />} />
-            <Route path="bezorging" element={<Delivery />} />
-            <Route path="openingstijden" element={<OpeningHours />} />
-            <Route path="instellingen" element={<Settings />} />
-            <Route path="profiel" element={<Profile />} />
+            <Route index element={<DashboardIndex />} />
+            <Route path="bestellingen" element={forRestaurant(<Orders />)} />
+            <Route path="menu" element={forRestaurant(<MenuItems />)} />
+            <Route path="categorieen" element={forRestaurant(<Categories />)} />
+            <Route path="bezorging" element={forRestaurant(<Delivery />)} />
+            <Route path="openingstijden" element={forRestaurant(<OpeningHours />)} />
+            <Route path="instellingen" element={forRestaurant(<Settings />)} />
+            <Route path="profiel" element={forRestaurant(<Profile />)} />
             <Route
               path="personeel"
               element={

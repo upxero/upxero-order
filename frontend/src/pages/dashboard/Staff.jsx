@@ -81,11 +81,11 @@ export default function Staff() {
               <h2 className="font-heading text-lg font-semibold text-slate-900">{t("Openstaande uitnodigingen")}</h2>
               <div className="mt-4 divide-y divide-slate-100">
                 {data.invitations.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between gap-3 py-3" data-testid={`invitation-row-${inv.id}`}>
-                    <div className="flex items-center gap-3">
-                      <span className="grid h-9 w-9 place-items-center rounded-lg bg-amber-50 text-amber-600"><Mail className="h-4.5 w-4.5" size={18} /></span>
+                  <div key={inv.id} className="flex flex-wrap items-center justify-between gap-3 py-3" data-testid={`invitation-row-${inv.id}`}>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-amber-50 text-amber-600"><Mail className="h-4.5 w-4.5" size={18} /></span>
                       <div>
-                        <p className="font-medium text-slate-900">{inv.email}</p>
+                        <p className="break-all font-medium text-slate-900">{inv.email}</p>
                         <p className="flex items-center gap-1 text-xs text-slate-400"><Clock className="h-3 w-3" /> {t("Verloopt {date}", { date: formatDateTime(inv.expiresAt) })}</p>
                       </div>
                     </div>
@@ -106,14 +106,14 @@ export default function Staff() {
             ) : (
               <div className="mt-4 divide-y divide-slate-100">
                 {data.staff.map((u) => (
-                  <div key={u.id} className="flex items-center justify-between gap-3 py-3" data-testid={`staff-row-${u.id}`}>
-                    <div className="flex items-center gap-3">
-                      <span className={`grid h-9 w-9 place-items-center rounded-lg ${u.isActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
+                  <div key={u.id} className="flex flex-wrap items-center justify-between gap-3 py-3" data-testid={`staff-row-${u.id}`}>
+                    <div className="flex min-w-0 items-center gap-3">
+                      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-lg ${u.isActive ? "bg-emerald-50 text-emerald-600" : "bg-slate-100 text-slate-400"}`}>
                         <Users className="h-4.5 w-4.5" size={18} />
                       </span>
                       <div>
                         <p className="font-medium text-slate-900">{u.name}</p>
-                        <p className="text-xs text-slate-500">{u.email}</p>
+                        <p className="break-all text-xs text-slate-500">{u.email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

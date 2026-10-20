@@ -4,7 +4,7 @@ import os
 import uuid
 
 from db import db
-from security import hash_password, verify_password
+from security import hash_password
 from utils import now_iso, slugify
 
 DEMO_EMAIL = "owner@demo.upxero.com"
@@ -15,7 +15,6 @@ DEMO_SLUG = "bistro-demo"
 async def seed_data():
     await _seed_super_admin()
     await _seed_demo_restaurant()
-    await _write_credentials()
 
 
 async def _seed_super_admin():
@@ -23,14 +22,13 @@ async def _seed_super_admin():
     password = os.environ.get("ADMIN_PASSWORD", "Upxero!Admin2025")
     existing = await db.users.find_one({"email": email})
     ts = now_iso()
+    # Create only. Never overwrite an existing admin's password (it may have been changed via reset).
     if not existing:
         await db.users.insert_one({
             "email": email, "passwordHash": hash_password(password), "name": "Upxero Admin",
             "role": "super_admin", "restaurantId": None, "isActive": True,
             "createdAt": ts, "updatedAt": ts,
         })
-    elif not verify_password(password, existing.get("passwordHash", "")):
-        await db.users.update_one({"email": email}, {"$set": {"passwordHash": hash_password(password)}})
 
 
 def _hours():
@@ -145,7 +143,7 @@ async def _write_credentials():
 - GET  /api/auth/me
 - POST /api/auth/refresh
 """
-        with open("/app/memory/test_credentials.md", "w") as f:
+        with open("/app/memory/seed_reference.md", "w") as f:
             f.write(content)
     except Exception:
         pass

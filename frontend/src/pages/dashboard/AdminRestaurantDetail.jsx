@@ -20,6 +20,7 @@ const ACTIONS = {
   "deletion.cancelled": "Verwijderverzoek ingetrokken",
   "deletion.rejected": "Verwijderverzoek afgewezen",
   "deletion.completed": "Verwijdering uitgevoerd",
+  "restaurant.purged": "Restaurant definitief gewist",
 };
 const ROLES = { restaurant_admin: "Beheerder", restaurant_staff: "Medewerker" };
 
@@ -37,7 +38,7 @@ export function StatusBadge({ r, pending }) {
 
 function Info({ label, value, testid }) {
   return (
-    <div className="rounded-lg border border-slate-200 bg-white p-4">
+    <div className="min-w-0 rounded-lg border border-slate-200 bg-white p-4">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{label}</p>
       <p className="mt-1 truncate text-sm font-semibold text-slate-900" data-testid={testid}>{value}</p>
     </div>
@@ -101,7 +102,7 @@ export default function AdminRestaurantDetail() {
       {back}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl" data-testid="admin-detail-name">{r.name}</h1>
+          <h1 className="break-words font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl" data-testid="admin-detail-name">{r.name}</h1>
           <div className="mt-2"><StatusBadge r={r} pending={pending} /></div>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -129,7 +130,7 @@ export default function AdminRestaurantDetail() {
         <ul className="mt-3 divide-y divide-slate-100">
           {data.users.map((u) => (
             <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5 text-sm" data-testid={`admin-user-${u.id}`}>
-              <span><span className="font-medium text-slate-900">{u.name}</span> · <span className="text-slate-500">{u.email}</span></span>
+              <span className="break-all"><span className="font-medium text-slate-900">{u.name}</span> · <span className="text-slate-500">{u.email}</span></span>
               <span className="flex gap-2 text-xs text-slate-500">
                 <span>{t(ROLES[u.role] || u.role)}</span>
                 <span>· {u.deletedAt ? t("Verwijderd") : u.isActive ? t("Actief") : t("Gedeactiveerd")}</span>
@@ -151,7 +152,7 @@ export default function AdminRestaurantDetail() {
                 <span className="font-medium text-slate-900">{t(ACTIONS[a.action] || a.action)}
                   {a.details?.fields && <span className="font-normal text-slate-500"> · {a.details.fields.join(", ")}</span>}
                 </span>
-                <span className="text-slate-500">{a.actorEmail} · {formatDateTime(a.createdAt)}</span>
+                <span className="break-all text-slate-500">{a.actorEmail} · {formatDateTime(a.createdAt)}</span>
               </li>
             ))}
           </ul>
