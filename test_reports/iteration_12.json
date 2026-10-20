@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend-only retest using Playwright on the public URL. (4) Mobile overflow at 390px: document.documentElement.scrollWidth is 390 on all 9 owner pages (/dashboard, bestellingen, menu, categorieen, bezorging, openingstijden, instellingen, profiel, personeel), on super admin /dashboard/platform and on /dashboard/platform/<Bistro Demo id> (read-only), and on /, /privacy and /order/bistro-demo. An element-level scan found no non-fixed element whose right edge goes past the viewport. The old overflows are gone (Overview order-link card, Profile delete buttons, Staff rows). The mobile drawer opens, shows the correct nav and closes after navigating. The add-menu-item dialog opens, accepts input and closes with Escape. Desktop at 1920 has no overflow. (5) ScrollToTop: footer link navigation from the bottom of /privacy to terms, cookies, legal and contact gives scrollY 0 every time. Landing (scrollY 1020) to privacy gives 0. Browser back (POP) restores the previous position (247 on /legal, 1020 on landing), forward works, and nothing breaks. (6) Regression: the owner nav has all 9 items including Personeel. Staff has 8 items without Personeel or Platform, and staff going to /dashboard/personeel or /dashboard/platform is redirected to /dashboard. Super admin sees only Platform, the Platform page with the Archived section (Sushi To Home) renders, the Manage detail page renders, and super admin going to /dashboard/menu is redirected to /dashboard/platform. Registering TEST_Reg 88619 leads to the dashboard with the verify-email banner, then logout and re-login work. The public pickup order on bistro-demo (restaurant was open) gave order #1318 and the status page. All TEST data was deleted: the restaurant, user, verification token and order #1318. No page errors were seen.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Dashboard right after register (mobile)", "issues": ["For about 1 second the header shows 'Upxero' and the stats show '—' until /auth/me resolves. It then correctly shows the restaurant name and 0s. Cosmetic only."]},
+      {"screen": "Mobile dashboard header", "issues": ["The Sonner 'Welcome back!' toast (top-right) covers the hamburger/menu header on 390px for a few seconds. Consider position='top-center' with an offset, or a bottom position, on mobile."]},
+      {"screen": "Mobile dialogs (menu item)", "issues": ["The dialog is edge-to-edge (width ~389px, no side margin). It is usable, but adding a small inset would look better."]},
+      {"screen": "Staff role pages", "issues": ["Already like this before this change: staff sees edit forms on Menu, Categories, Delivery, Opening hours and Settings, but the backend uses admin_only for those mutations, so Save returns 403. Consider read-only UI for staff or hiding those nav items."]},
+      {"screen": "Admin detail (English UI)", "issues": ["Dates still use Dutch month abbreviations ('30 sep, 16:33'). Already reported in iteration 11."]}
+    ]
+  },
+  "test_report_links": [],
+  "action_items": [
+    "Optional: on mobile, move the Toaster so it does not cover the dashboard header",
+    "Optional: make staff-facing edit pages read-only, or hide them, since saving returns 403",
+    "Optional: show a loading skeleton instead of 'Upxero' while the restaurant is loading"
+  ],
+  "critical_code_review_comments": [
+    "ScrollToTop is correct: it skips POP and hash navigations, and depends on pathname, so query-only changes do not scroll. This is good.",
+    "DashboardIndex redirects super_admin to /platform, and forRestaurant guards all restaurant routes. Verified by redirect.",
+    "Bistro Demo has a staff user 'mike_bernard@live.nl' (it looks real). It was not touched."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (not requested)", "frontend": "100% of requested checks"},
+  "seed_data_creation": "Created and deleted: TEST_Reg 88619 (test_reg_88619@upxerotest.com) with its user and email verification token, plus Bistro Demo order #1318 (customer TEST_Order Bot). The Bistro Demo order counter is now at 1318; it was not rolled back.",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Overflow check: evaluate document.documentElement.scrollWidth at 390x800 and scan for elements with getBoundingClientRect().right > innerWidth, excluding position:fixed elements such as Sonner toasts. Bistro Demo id is 6abd39c855ab204f549310c6. Footer testids: footer-link-{privacy,terms,cookies,legal,contact}. Cleanup: tests/cleanup_test_purge.py plus deleting orders by customer name."
+}

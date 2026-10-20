@@ -118,3 +118,13 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - Backlog: formatDateTime always uses the nl-BE locale; the super admin sidebar shows restaurant nav items it can't use; while a restaurant is deactivated, its logo, menu file and item images can still be opened by direct URL.
 
 
+
+## Stability + admin fixes (2026-10-20)
+- Admin password: the root cause was seed.py overwriting the ADMIN_EMAIL password with ADMIN_PASSWORD on every startup. Startup now only creates the account and never overwrites it. The seed no longer writes /app/memory/test_credentials.md (it writes seed_reference.md instead).
+- Deletion lifecycle: deleted restaurants are excluded from the Platform list and shown in an "Archived / deleted restaurants" section. GET /api/admin/restaurants/archived; POST /api/admin/restaurants/{id}/purge (super admin, typed name, only after DELETION_RETENTION_DAYS=30 enforced by the backend, idempotent, never automatic). Purge removes the anonymised user records, any leftover menu/files/invitations and the order counter, and leaves a tombstone restaurant record (name, slug, country, createdAt, deletedAt, purgedAt). Orders (anonymised), deletion requests and audit logs are retained.
+- Super admin sidebar shows only Platform; /dashboard and restaurant routes redirect super admins to Platform.
+- Mobile overflow fixed (main min-w-0, Overview grid, Staff rows, deletion buttons, admin detail).
+- ScrollToTop on PUSH/REPLACE navigations; back/forward and #hash untouched.
+- Tested in iteration_12 plus the previous run's 12/12 purge-lifecycle tests.
+- Backlog (cosmetic): dates use Dutch month names in the English UI; staff see edit forms that return 403; the mobile toast covers the header; dialogs are edge-to-edge on mobile.
+
