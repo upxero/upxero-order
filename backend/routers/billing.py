@@ -165,7 +165,9 @@ async def whop_webhook(request: Request):
     if typ.startswith(HANDLED_PREFIXES):
         mid = whop.membership_id_from_event(event)
         result = "ignored:no_membership"
-        if mid:
+        if mid == "mem_xxxxxxxxxxxxxx":
+            result = "ignored:test_placeholder"
+        elif mid:
             try:
                 result = await whop.apply_membership(await whop.get_membership(mid), whop.checkout_id_from_event(event))
             except Exception as e:
