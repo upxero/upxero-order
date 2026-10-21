@@ -38,6 +38,10 @@ class AdminActiveReq(BaseModel):
     isActive: bool
 
 
+class AdminLegacyReq(BaseModel):
+    legacy: bool
+
+
 class AdminConfirmReq(BaseModel):
     confirmText: str = Field(min_length=1, max_length=200)
 

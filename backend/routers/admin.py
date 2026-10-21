@@ -4,11 +4,13 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Depends, HTTPException
 
 from db import db
-from models import AdminActiveReq, AdminConfirmReq, AdminRejectReq, AdminRestaurantReq, ProfileReq
+from models import AdminActiveReq, AdminConfirmReq, AdminLegacyReq, AdminRejectReq, AdminRestaurantReq, ProfileReq
 from routers.restaurants import apply_profile_update
 from security import hash_password, require_roles
 from services.audit import audit
 from services.deletion import anonymise_user, delete_restaurant_data, purge_restaurant
+from services import whop
+from services.entitlements import effective_plan
 from utils import now_iso, oid, serialize, unique_slug
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -103,12 +105,36 @@ async def restaurant_detail(restaurant_id: str, user: dict = Depends(super_only)
     logs = await db.audit_logs.find({"restaurantId": rid}).sort("createdAt", -1).to_list(50)
     return {
         "restaurant": serialize(r),
+        "plan": effective_plan(r),
         "owner": owner,
         "users": safe_users,
         "orderCount": await db.orders.count_documents({"restaurantId": rid}),
         "deletionRequests": [serialize(x) for x in requests],
         "auditLog": [serialize(x) for x in logs],
     }
+
+
+@router.patch("/restaurants/{restaurant_id}/legacy")
+async def set_legacy_plan(restaurant_id: str, payload: AdminLegacyReq, user: dict = Depends(super_only)):
+    r = await _restaurant_or_404(restaurant_id)
+    _not_deleted(r)
+    if bool((r.get("subscription") or {}).get("legacy")) != payload.legacy:
+        await db.restaurants.update_one({"_id": r["_id"]}, {"$set": {"subscription.legacy": payload.legacy}})
+        await audit(user, r["_id"], "subscription.legacy_set" if payload.legacy else "subscription.legacy_removed")
+    r = await db.restaurants.find_one({"_id": r["_id"]})
+    return {"legacy": payload.legacy, "plan": effective_plan(r)}
+
+
+@router.get("/billing/whop-plans")
+async def whop_plans(user: dict = Depends(super_only)):
+    if not whop.api_configured():
+        raise HTTPException(status_code=503, detail="WHOP_API_KEY ontbreekt in de backendconfiguratie.")
+    try:
+        plans = await whop.list_plans()
+    except whop.WhopError as e:
+        raise HTTPException(status_code=502, detail=f"Whop API fout ({e.status}). Controleer de API-sleutelrechten (plan:basic:read).")
+    keys = ("id", "title", "plan_type", "billing_period", "renewal_price", "initial_price", "currency", "visibility")
+    return [{k: p.get(k) for k in keys} for p in plans]
 
 
 @router.patch("/restaurants/{restaurant_id}/active")

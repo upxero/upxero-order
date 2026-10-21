@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from db import db
 from models import AvailabilityReq, CategoryReq, MenuItemReq
 from security import require_roles, restaurant_id_of
+from services.entitlements import assert_can_activate_product
 from services.storage import IMAGE_MIMES, delete_file, save_upload
 from utils import now_iso, oid, serialize
 
@@ -85,6 +86,8 @@ async def create_item(payload: MenuItemReq, user: dict = Depends(admin_only)):
     cat = await db.menu_categories.find_one({"_id": oid(payload.categoryId), "restaurantId": rid})
     if not cat:
         raise HTTPException(status_code=400, detail="Ongeldige categorie")
+    if payload.isAvailable:
+        await assert_can_activate_product(await db.restaurants.find_one({"_id": oid(rid)}))
     ts = now_iso()
     doc = payload.model_dump()
     doc["optionGroups"] = _prepare_groups(payload.optionGroups)
@@ -100,6 +103,7 @@ async def update_item(item_id: str, payload: MenuItemReq, user: dict = Depends(a
     cat = await db.menu_categories.find_one({"_id": oid(payload.categoryId), "restaurantId": rid})
     if not cat:
         raise HTTPException(status_code=400, detail="Ongeldige categorie")
+    await _check_activation(rid, item_id, payload.isAvailable)
     doc = payload.model_dump()
     doc["optionGroups"] = _prepare_groups(payload.optionGroups)
     doc["updatedAt"] = now_iso()
@@ -112,9 +116,19 @@ async def update_item(item_id: str, payload: MenuItemReq, user: dict = Depends(a
     return serialize(updated)
 
 
+async def _check_activation(rid: str, item_id: str, want_available: bool):
+    # Only switching an inactive product on counts against the Free limit.
+    if not want_available:
+        return
+    item = await db.menu_items.find_one({"_id": oid(item_id), "restaurantId": rid}, {"isAvailable": 1})
+    if item and not item.get("isAvailable"):
+        await assert_can_activate_product(await db.restaurants.find_one({"_id": oid(rid)}))
+
+
 @router.patch("/items/{item_id}/availability")
 async def set_availability(item_id: str, payload: AvailabilityReq, user: dict = Depends(any_staff)):
     rid = str(restaurant_id_of(user))
+    await _check_activation(rid, item_id, payload.isAvailable)
     result = await db.menu_items.update_one(
         {"_id": oid(item_id), "restaurantId": rid},
         {"$set": {"isAvailable": payload.isAvailable, "updatedAt": now_iso()}},

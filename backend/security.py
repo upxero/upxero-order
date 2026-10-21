@@ -83,10 +83,24 @@ async def get_current_user(request: Request) -> dict:
         raise HTTPException(status_code=401, detail="Ongeldig token")
 
 
+STAFF_PRO_MSG = "Personeelstoegang is alleen beschikbaar met Upxero Ordering Pro."
+
+
+async def assert_staff_entitled(user: dict) -> None:
+    """Staff access is a Pro feature; records are kept and access returns on Pro."""
+    if user.get("role") != "restaurant_staff" or not user.get("restaurantId"):
+        return
+    from services.entitlements import has
+    r = await db.restaurants.find_one({"_id": ObjectId(str(user["restaurantId"]))}, {"subscription": 1})
+    if not r or not has(r, "staff_management_enabled"):
+        raise HTTPException(status_code=403, detail=STAFF_PRO_MSG)
+
+
 def require_roles(*roles):
     async def dep(user: dict = Depends(get_current_user)) -> dict:
         if user.get("role") not in roles:
             raise HTTPException(status_code=403, detail="Geen toegang")
+        await assert_staff_entitled(user)
         return user
     return dep
 

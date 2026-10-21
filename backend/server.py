@@ -10,7 +10,7 @@ from fastapi import APIRouter, FastAPI  # noqa: E402
 from starlette.middleware.cors import CORSMiddleware  # noqa: E402
 
 from db import ensure_indexes  # noqa: E402
-from routers import admin, auth, menu, orders, public, restaurants  # noqa: E402
+from routers import admin, auth, billing, menu, orders, public, restaurants  # noqa: E402
 from seed import seed_data  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
@@ -46,6 +46,7 @@ app.include_router(menu.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
 app.include_router(public.router, prefix="/api")
 app.include_router(admin.router, prefix="/api")
+app.include_router(billing.router, prefix="/api")
 
 frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 allowed = list({frontend_url, "http://localhost:3000"})

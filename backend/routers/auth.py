@@ -6,7 +6,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 
 from db import db
 from models import ForgotPasswordReq, LoginReq, RegisterReq, ResetPasswordReq, VerifyEmailReq
-from security import (clear_auth_cookies, create_access_token,
+from security import (assert_staff_entitled, clear_auth_cookies, create_access_token,
                       create_refresh_token, get_current_user, hash_password,
                       set_auth_cookies, verify_password, _secret, JWT_ALGORITHM)
 from services.email import send_password_reset_email, send_verification_email
@@ -146,6 +146,7 @@ async def login(payload: LoginReq, request: Request, response: Response):
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
     if not user.get("isActive", True):
         raise HTTPException(status_code=403, detail="Account is gedeactiveerd")
+    await assert_staff_entitled(user)
 
     await db.login_attempts.delete_many({"identifier": identifier})
     access = create_access_token(str(user["_id"]), email, user.get("tokenVersion", 0))

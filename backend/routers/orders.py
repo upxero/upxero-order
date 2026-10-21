@@ -8,6 +8,7 @@ from security import require_roles, restaurant_id_of
 from services.email import (send_order_eta_customer_email,
                             send_order_status_customer_email)
 from services.notifications import notify_status_change
+from services.entitlements import has as has_feature
 from utils import derive_status_token, now_iso, oid, serialize
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -42,7 +43,8 @@ def _clean(order: dict) -> dict:
 
 async def _notify_customer(background_tasks, order, restaurant, kind="status"):
     email = ((order.get("customer") or {}).get("email") or "").strip()
-    if not (email and restaurant.get("customerEmailsEnabled", True)):
+    if not (email and restaurant.get("customerEmailsEnabled", True)
+            and has_feature(restaurant, "customer_email_notifications_enabled")):
         return
     # Legacy orders carry a plaintext token; new orders derive it from the id.
     token = order.get("statusToken") or derive_status_token(str(order["_id"]))

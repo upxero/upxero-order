@@ -42,6 +42,26 @@ async def ensure_indexes():
     await db.email_verification_requests.create_index("created_at", expireAfterSeconds=900)
     await db.audit_logs.create_index([("restaurantId", 1), ("createdAt", -1)])
     await db.deletion_requests.create_index([("restaurantId", 1), ("status", 1)])
+    await db.whop_events.create_index("receivedAt")
+    await db.billing_checkouts.create_index("ref", unique=True)
+    await db.billing_checkouts.create_index("restaurantId")
+    await db.order_usage.create_index("restaurantId")
+    await db.restaurants.create_index("subscription.whopMembershipId", unique=True, name="one_restaurant_per_membership",
+                                      partialFilterExpression={"subscription.whopMembershipId": {"$type": "string"}})
+    await _migrate_legacy_plans()
+
+
+async def _migrate_legacy_plans():
+    """One-time: restaurants that existed before Free/Pro keep every feature (legacy) until an admin decides."""
+    if await db.migrations.find_one({"_id": "billing_legacy_v1"}):
+        return
+    from datetime import datetime, timezone
+    res = await db.restaurants.update_many(
+        {"deletedAt": None, "subscription": {"$exists": False}},
+        {"$set": {"subscription": {"legacy": True}}},
+    )
+    await db.migrations.insert_one({"_id": "billing_legacy_v1", "legacyAssigned": res.modified_count,
+                                    "ranAt": datetime.now(timezone.utc).isoformat()})
     await db.deletion_requests.create_index("restaurantId", unique=True, name="one_pending_per_restaurant",
                                             partialFilterExpression={"status": "pending"})
     await db.staff_invitations.create_index("expires_at", expireAfterSeconds=0)

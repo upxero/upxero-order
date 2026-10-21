@@ -14,6 +14,7 @@ from security import require_roles, restaurant_id_of, verify_password
 from services.audit import audit
 from services.distance import geocode
 from services.email import send_staff_invitation_email
+from services.entitlements import effective_plan, require
 from services.storage import (IMAGE_MIMES, MENU_FILE_MIMES, delete_file,
                               save_upload)
 from utils import now_iso, oid, serialize
@@ -27,10 +28,9 @@ any_staff = require_roles("restaurant_admin", "restaurant_staff")
 @router.get("/me")
 async def my_restaurant(user: dict = Depends(any_staff)):
     r = await db.restaurants.find_one({"_id": restaurant_id_of(user)})
-    return serialize(r)
-
-
-@router.put("/profile")
+    d = serialize(r)
+    d["plan"] = effective_plan(r)
+    return d
 async def update_profile(payload: ProfileReq, user: dict = Depends(admin_only)):
     return await apply_profile_update(restaurant_id_of(user), payload.model_dump())
 
@@ -120,6 +120,7 @@ async def remove_menu_file(user: dict = Depends(admin_only)):
 @router.put("/delivery")
 async def update_delivery(payload: DeliveryReq, user: dict = Depends(admin_only)):
     rid = restaurant_id_of(user)
+    require(await db.restaurants.find_one({"_id": rid}), "delivery_zones_enabled", PRO_DELIVERY_MSG)
     zones = [z.model_dump() for z in payload.zones]
     for i, z in enumerate(zones):
         if not z.get("id"):
@@ -167,6 +168,8 @@ async def update_settings(payload: SettingsReq, user: dict = Depends(admin_only)
 # ---------- Staff management (restaurant_admin only, tenant-scoped) ----------
 
 INVITE_DAYS = 7
+PRO_DELIVERY_MSG = "Bezorging is beschikbaar met Upxero Ordering Pro."
+PRO_STAFF_MSG = "Personeelsbeheer is beschikbaar met Upxero Ordering Pro."
 
 
 @router.get("/staff")
@@ -199,6 +202,7 @@ async def invite_staff(payload: InviteStaffReq, background_tasks: BackgroundTask
     rid = restaurant_id_of(user)
     rid_str = str(rid)
     email = payload.email.lower().strip()
+    require(await db.restaurants.find_one({"_id": rid}), "staff_management_enabled", PRO_STAFF_MSG)
 
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="Er bestaat al een account met dit e-mailadres.")
@@ -235,6 +239,8 @@ async def set_staff_active(user_id: str, payload: StaffActiveReq, user: dict = D
     )
     if not target:
         raise HTTPException(status_code=404, detail="Medewerker niet gevonden")
+    if payload.isActive:
+        require(await db.restaurants.find_one({"_id": oid(rid)}), "staff_management_enabled", PRO_STAFF_MSG)
     update = {"$set": {"isActive": payload.isActive, "updatedAt": now_iso()}}
     if not payload.isActive:
         # Deactivation invalidates existing staff sessions immediately.

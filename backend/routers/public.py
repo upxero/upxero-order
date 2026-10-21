@@ -12,6 +12,7 @@ from security import (create_access_token, create_refresh_token, hash_password,
 from services.distance import geocode, haversine_km
 from services.email import send_new_order_email, send_order_received_customer_email
 from services.notifications import notify_new_order
+from services import entitlements as ent
 from services.storage import open_file
 from utils import (derive_status_token, hash_status_token, next_order_number,
                    now_iso, oid, serialize)
@@ -42,6 +43,10 @@ def compute_is_open(restaurant: dict) -> bool:
     return open_min <= cur < close_min
 
 
+def _delivery_on(r: dict) -> bool:
+    return bool(r.get("deliveryEnabled")) and ent.has(r, "delivery_enabled")
+
+
 def _public_restaurant(r: dict) -> dict:
     return {
         "id": str(r["_id"]),
@@ -59,7 +64,7 @@ def _public_restaurant(r: dict) -> dict:
         "postalCode": r.get("postalCode", ""),
         "openingHours": r.get("openingHours", {}),
         "pickupEnabled": r.get("pickupEnabled", False),
-        "deliveryEnabled": r.get("deliveryEnabled", False),
+        "deliveryEnabled": _delivery_on(r),
         "orderingEnabled": r.get("orderingEnabled", False),
         "deliveryZones": [z for z in r.get("deliveryZones", []) if z.get("enabled", True)],
         "freeDeliveryEnabled": r.get("freeDeliveryEnabled", False),
@@ -79,7 +84,7 @@ async def get_public_restaurant(slug: str):
     cats = await db.menu_categories.find({"restaurantId": rid, "isActive": True}).sort("sortOrder", 1).to_list(500)
     items = await db.menu_items.find({"restaurantId": rid}).sort("sortOrder", 1).to_list(1000)
     return {
-        "restaurant": _public_restaurant(r),
+        "restaurant": {**_public_restaurant(r), "monthlyLimitReached": await ent.monthly_limit_reached(r)},
         "categories": [serialize(c) for c in cats],
         "items": [_public_item(i, slug) for i in items],
     }
@@ -210,7 +215,7 @@ async def quote_order(slug: str, payload: QuoteReq):
         return {"orderType": "pickup", "subtotal": subtotal, "deliveryFee": 0.0,
                 "total": subtotal, "available": True}
 
-    if not r.get("deliveryEnabled"):
+    if not _delivery_on(r):
         raise HTTPException(status_code=400, detail="Bezorgen is niet beschikbaar.")
     if not payload.deliveryAddress:
         raise HTTPException(status_code=400, detail="Bezorgadres is verplicht")
@@ -260,7 +265,7 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
 
     if payload.orderType == "pickup" and not r.get("pickupEnabled"):
         raise HTTPException(status_code=400, detail="Afhalen is niet beschikbaar.")
-    if payload.orderType == "delivery" and not r.get("deliveryEnabled"):
+    if payload.orderType == "delivery" and not _delivery_on(r):
         raise HTTPException(status_code=400, detail="Bezorgen is niet beschikbaar.")
 
     # Authoritative menu
@@ -307,7 +312,13 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
         delivery_address = {**da.model_dump(), "latitude": coords[0], "longitude": coords[1]}
 
     total = round(subtotal + delivery_fee, 2)
-    order_number = await next_order_number(db, rid)
+    # Free quota: reserve a slot atomically; give it back if the order is not saved.
+    slot = await ent.reserve_order_slot(r)
+    try:
+        order_number = await next_order_number(db, rid)
+    except Exception:
+        await ent.release_order_slot(slot)
+        raise HTTPException(status_code=500, detail="De bestelling kon niet worden opgeslagen. Probeer het opnieuw.")
     ts = now_iso()
     order = {
         "restaurantId": rid,
@@ -333,6 +344,7 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     try:
         res = await db.orders.insert_one(order)
     except Exception:
+        await ent.release_order_slot(slot)
         # duplicate idempotency key race -> return existing
         if payload.idempotencyKey:
             existing = await db.orders.find_one({"restaurantId": rid, "idempotencyKey": payload.idempotencyKey})
@@ -353,10 +365,10 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     order["statusTokenExpiresAt"] = expires_at
     await notify_new_order(rid, order_number)
     _lang = r.get("defaultLanguage", "nl")
-    if r.get("orderEmailsEnabled", True) and r.get("email"):
+    if r.get("orderEmailsEnabled", True) and r.get("email") and ent.has(r, "restaurant_email_notifications_enabled"):
         background_tasks.add_task(send_new_order_email, r["email"], r["name"], serialize(order), _lang)
     cust_email = (payload.customer.email or "").strip()
-    if cust_email and r.get("customerEmailsEnabled", True):
+    if cust_email and r.get("customerEmailsEnabled", True) and ent.has(r, "customer_email_notifications_enabled"):
         background_tasks.add_task(send_order_received_customer_email, cust_email, r["name"], serialize(order), status_token, _lang)
     return _order_result_with_token(order)
 
