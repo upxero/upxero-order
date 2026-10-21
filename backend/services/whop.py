@@ -63,6 +63,7 @@ async def list_plans() -> list:
 async def create_checkout(restaurant_id: str, ref: str, redirect_url: str) -> dict:
     return await _request("POST", "/checkout_configurations", json={
         "plan_id": cfg("WHOP_PLAN_ID"),
+        "mode": "payment",
         "metadata": {"restaurant_id": restaurant_id, "checkout_ref": ref},
         "redirect_url": redirect_url,
     })
@@ -111,30 +112,46 @@ def membership_id_from_event(event: dict) -> str | None:
     return None
 
 
+def checkout_id_from_event(event: dict) -> str | None:
+    data = event.get("data") or {}
+    return data.get("checkout_configuration_id") if str(event.get("type", "")).startswith("payment.") else None
+
+
+# Whop returns either the current membership shape (account/product_id/plan_id/user_id/current_period_end)
+# or the legacy one (company/product/plan/user objects, renewal_period_end); accept both.
+def _ref_id(m: dict, flat: str, obj: str) -> str | None:
+    return m.get(flat) or (m.get(obj) or {}).get("id")
+
+
 def _owned(m: dict) -> bool:
-    plan_ok = not cfg("WHOP_PLAN_ID") or (m.get("plan") or {}).get("id") == cfg("WHOP_PLAN_ID")
-    return ((m.get("company") or {}).get("id") == cfg("WHOP_BUSINESS_ID")
-            and (m.get("product") or {}).get("id") == cfg("WHOP_PRODUCT_ID") and plan_ok)
+    biz = (m.get("account") or {}).get("id") or (m.get("company") or {}).get("id")
+    plan_ok = not cfg("WHOP_PLAN_ID") or _ref_id(m, "plan_id", "plan") == cfg("WHOP_PLAN_ID")
+    return biz == cfg("WHOP_BUSINESS_ID") and _ref_id(m, "product_id", "product") == cfg("WHOP_PRODUCT_ID") and plan_ok
 
 
-async def _linked_restaurant(m: dict) -> dict | None:
+async def _linked_restaurant(m: dict, checkout_id: str | None = None) -> dict | None:
     r = await db.restaurants.find_one({"subscription.whopMembershipId": m["id"]})
     if r:
         return r
+    chk = None
     meta = m.get("metadata") or {}
     rid, ref = meta.get("restaurant_id"), meta.get("checkout_ref")
-    if not (rid and ref and ObjectId.is_valid(rid)):
+    if rid and ref:
+        chk = await db.billing_checkouts.find_one({"ref": ref, "restaurantId": rid})
+    ids = [i for i in (m.get("checkout_configuration_id"), checkout_id) if i]
+    if not chk and ids:
+        # Our own stored checkout id, created server-side for the owner's restaurant.
+        chk = await db.billing_checkouts.find_one({"whopCheckoutId": {"$in": ids}})
+    if not chk or not ObjectId.is_valid(chk["restaurantId"]):
         return None
-    if not await db.billing_checkouts.find_one({"ref": ref, "restaurantId": rid}):
-        return None
-    return await db.restaurants.find_one({"_id": ObjectId(rid), "deletedAt": None})
+    return await db.restaurants.find_one({"_id": ObjectId(chk["restaurantId"]), "deletedAt": None})
 
 
-async def apply_membership(m: dict) -> str:
+async def apply_membership(m: dict, checkout_id: str | None = None) -> str:
     """Persist authoritative membership state (fetched from Whop, never from webhook data)."""
     if not m.get("id") or not _owned(m):
         return "ignored:foreign"
-    r = await _linked_restaurant(m)
+    r = await _linked_restaurant(m, checkout_id)
     if not r:
         return "ignored:unlinked"
     sub = r.get("subscription") or {}
@@ -147,11 +164,11 @@ async def apply_membership(m: dict) -> str:
     fields = {
         "whopMembershipId": m["id"],
         "whopStatus": m.get("status"),
-        "whopUserId": (m.get("user") or {}).get("id"),
-        "whopPlanId": (m.get("plan") or {}).get("id"),
-        "whopProductId": (m.get("product") or {}).get("id"),
-        "whopBusinessId": (m.get("company") or {}).get("id"),
-        "renewalPeriodEnd": m.get("renewal_period_end"),
+        "whopUserId": _ref_id(m, "user_id", "user"),
+        "whopPlanId": _ref_id(m, "plan_id", "plan"),
+        "whopProductId": _ref_id(m, "product_id", "product"),
+        "whopBusinessId": (m.get("account") or {}).get("id") or (m.get("company") or {}).get("id"),
+        "renewalPeriodEnd": m.get("renewal_period_end") or m.get("current_period_end"),
         "cancelAtPeriodEnd": bool(m.get("cancel_at_period_end")),
         "manageUrl": m.get("manage_url"),
         "lastSyncedAt": datetime.now(timezone.utc).isoformat(),

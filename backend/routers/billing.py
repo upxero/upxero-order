@@ -38,16 +38,18 @@ async def _sync_restaurant(r: dict) -> str:
     # No webhook yet: look for a membership created from one of this restaurant's checkouts.
     rid = str(r["_id"])
     refs = set(await db.billing_checkouts.distinct("ref", {"restaurantId": rid}))
+    chk_ids = set(await db.billing_checkouts.distinct("whopCheckoutId", {"restaurantId": rid})) - {None}
     if not refs:
         return "none"
     candidates = [m for m in await whop.list_memberships()
-                  if (m.get("metadata") or {}).get("restaurant_id") == rid
-                  and (m.get("metadata") or {}).get("checkout_ref") in refs]
+                  if ((m.get("metadata") or {}).get("restaurant_id") == rid
+                      and (m.get("metadata") or {}).get("checkout_ref") in refs)
+                  or m.get("checkout_configuration_id") in chk_ids]
     # Prefer a membership that still grants access.
     candidates.sort(key=lambda m: m.get("status") not in PRO_STATUSES)
     result = "none"
     for m in candidates:
-        result = await whop.apply_membership(await whop.get_membership(m["id"]))
+        result = await whop.apply_membership(await whop.get_membership(m["id"]), m.get("checkout_configuration_id"))
         if result.startswith("applied:"):
             break
     return result
@@ -165,7 +167,7 @@ async def whop_webhook(request: Request):
         result = "ignored:no_membership"
         if mid:
             try:
-                result = await whop.apply_membership(await whop.get_membership(mid))
+                result = await whop.apply_membership(await whop.get_membership(mid), whop.checkout_id_from_event(event))
             except Exception as e:
                 # Release the claim so Whop's retry is processed.
                 await db.whop_events.delete_one({"_id": wid})

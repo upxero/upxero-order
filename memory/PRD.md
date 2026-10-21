@@ -167,3 +167,14 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - Tested in iteration_14: backend 10/10, frontend 100%. Pro state was seeded in the DB (Whop not configured).
 - Next: Stage 4. The user adds WHOP_API_KEY, then WHOP_PLAN_ID lookup, webhook creation + WHOP_WEBHOOK_SECRET, a sandbox/live checkout test only with approval, then the deployment-readiness check.
 
+
+## Stage 4 verification (2026-10-21)
+- WHOP_API_KEY works: plans read, memberships read, checkout_configuration:create all succeed. WHOP_PLAN_ID=plan_VivKiaypThPX3 ($9.99 USD, 30-day renewal). WHOP_WEBHOOK_SECRET is in .env; after a restart the endpoint returns 400 to unsigned requests.
+- Whop returns metadata null on checkout configurations, so matching does not rely on it alone. apply_membership now links by:
+  - an existing subscription.whopMembershipId;
+  - membership metadata restaurant_id + checkout_ref;
+  - our stored billing_checkouts.whopCheckoutId matched with payment.checkout_configuration_id (signed payment webhook) or membership checkout_configuration_id (list).
+- It also accepts both membership shapes (account/product_id/plan_id/user_id/current_period_end and the legacy company/product/plan/user/renewal_period_end).
+- Two unpaid, unlinked test checkouts were created (ch_1MgXp7IdjPKwx1C, ch_zHwTaB2Z3s0i6nk).
+- Untested: a genuine signed Whop event (none received since the secret was set) and real payment-to-restaurant linking.
+
