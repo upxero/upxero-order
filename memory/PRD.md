@@ -149,3 +149,21 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - Tests: tests/test_whop_billing.py (in-process, Whop mocked) + tests/test_billing_live.py, 24/24 after fixes (iteration_13).
 - Next: Stage 3 frontend (Subscription page, upgrade notices, public limit/pickup-only messaging), then Stage 4.
 
+
+## Whop Free/Pro — Stage 3 frontend (2026-10-21)
+- Subscription page /dashboard/abonnement (owner only, sidebar "Subscription"):
+  - Free: $0, usage meters, comparison, Upgrade button → POST /api/billing/checkout; shows an "unavailable" state while Whop isn't configured.
+  - Pro: Whop status, next billing date, Manage button using the backend `manageUrl`.
+  - Complimentary Pro (legacy): no billing buttons.
+  - Checkout return (?checkout=done) triggers POST /api/billing/sync.
+- Upgrade prompts (UpgradeNotice/UsageMeter):
+  - Delivery: notice, form disabled.
+  - Staff: notice, invite disabled.
+  - Menu: notice from 15/20 active products.
+  - Orders: x/30 meter, notice from 25.
+- Customer order page: pickup only on Free (backend flag). At the monthly limit it shows a neutral "temporarily unable to accept new online orders" message with no plan or Whop wording; the backend 409 text matches.
+- Admin: plan badge on Platform cards; PlanCard on the detail page grants/revokes Complimentary Pro (legacy) with confirmation and audit. Granting is blocked (409, button disabled) while a paid Whop membership is valid.
+- 20-active-product race fixed: post-write recheck rolls back the losers; for PUT the previous version is fully restored. Covered by tests/test_product_concurrency.py.
+- Tested in iteration_14: backend 10/10, frontend 100%. Pro state was seeded in the DB (Whop not configured).
+- Next: Stage 4. The user adds WHOP_API_KEY, then WHOP_PLAN_ID lookup, webhook creation + WHOP_WEBHOOK_SECRET, a sandbox/live checkout test only with approval, then the deployment-readiness check.
+

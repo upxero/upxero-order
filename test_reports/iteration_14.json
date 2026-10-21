@@ -1,0 +1,36 @@
+{
+  "summary": "Stage 3 (Subscription UI, upgrade prompts, customer limit message, admin Complimentary Pro, product-limit concurrency). Backend: 10/10 live pytest pass (new tests/test_stage3_subscription.py 7 + tests/test_product_concurrency.py 3; concurrency suite run 3x, always exactly 1 winner, final active = 20, losers 403, created losers deleted). Frontend (Playwright, EN/NL): Free page (Free, $0 / month, usage 0/30 & 16/20 meters, comparison, checkout-unavailable, no upgrade button); seeded Pro (Pro, $9.99 / month, status active, renewal 10 November 2026, manage link = https://whop.com/billing/manage/mem_test1, no upgrade/checkout-unavailable, delivery unlocked, no order-usage); Bistro Demo legacy (Gratis Pro/Complimentary Pro, complimentary-info, no upgrade/manage/comparison, no notices, delivery fieldset enabled); upgrade prompts on Free (delivery notice + link /dashboard/abonnement navigates, fieldset disabled + save disabled; staff notice + invite input/button disabled; product-limit-notice '16 / 20'; order-usage 30/30 + order-limit-notice); customer page with count 30 shows exact EN message, no plan/Whop/subscription wording, no add buttons, only Pickup even with deliveryEnabled true in DB; admin list badges (Bistro Demo & New Edo Sushi Complimentary Pro, TEST Free), detail grant -> badge Complimentary Pro + audit (legacy_set/legacy_removed) -> revoke -> Free; seeded paid active -> button disabled with tooltip, API 409; owner/staff 403, anon 401. Regression: Bistro Demo menu/orders/profile save/delivery save OK. Mobile 390px: no horizontal overflow on abonnement/orders/menu/delivery/staff. All TEST data cleaned; Bistro Demo/New Edo Sushi still legacy:true, Sushi To Home untouched.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "PUT /api/menu/items/{id}", "issue": "If an activation loses the race, enforce_after_activation only sets isAvailable back to false. The other edits in the same PUT (name, price...) are already saved, but the client gets a 403 and thinks nothing was saved."},
+      {"endpoint": "POST/PATCH menu items (Free)", "issue": "The post-write recheck design can over-reject: if every concurrent writer writes before any of them checks, all of them roll back and nobody gets the 20th slot. It never happened in 3 runs (always 1 winner) and the limit is never exceeded."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Subscription (Pro)", "issues": ["subscription-status shows the raw Whop status ('active', 'past_due', 'canceling') without translation."]},
+      {"screen": "Subscription mobile 390px", "issues": ["The comparison header 'Free · $0' wraps onto 2 lines; add whitespace-nowrap to it."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_stage3_subscription.py", "/app/backend/tests/test_product_concurrency.py", "/app/test_reports/pytest/pytest_results_iter14.xml"],
+  "action_items": [
+    "Optional: in PUT /menu/items, either check activation atomically before saving the other fields or roll back the whole update when the race is lost",
+    "Optional: translate the Whop status label on the Subscription page",
+    "Optional: add nowrap to the comparison table headers"
+  ],
+  "critical_code_review_comments": [
+    "PlanCard.jsx hardcodes the PRO status list ['trialing','active','past_due','canceling'], a duplicate of backend PRO_STATUSES. The backend 409 is the real guard, so this only affects the UI.",
+    "Backend LIMIT_MSG and PRODUCT_LIMIT_MSG are Dutch only and the frontend translates them through the i18n map. API consumers outside the frontend get Dutch.",
+    "useBilling returns null for staff, so isFree is false for staff and no upgrade notices are shown to them. This is acceptable because staff need Pro to log in at all."
+  ],
+  "updated_files": ["/app/backend/tests/test_stage3_subscription.py", "/app/backend/tests/test_product_concurrency.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "seed_data_creation": "TEST_S3*/TEST_Conc* restaurants were created through register, with subscription, order_usage and products seeded directly in the DB. All were removed: cleanup_test_purge.py, plus order_usage, audit_logs, billing_checkouts, whop_events and test_s3_/test_conc_ users deleted. Verified 0 TEST_ restaurants, 0 upxerotest users and 0 order_usage left.",
+  "test_credentials": "Super admin login with Upxero!Admin2025 returns 401 because the owner has rotated the password. Tests mint a JWT access token from the DB user and JWT_SECRET; for the UI the access_token cookie is injected. owner@demo and staff@demo with Demo!2025 work.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: cd /app/backend && python -m pytest tests/test_stage3_subscription.py tests/test_product_concurrency.py -n 0 -q. Server clock is Oct 2026 (Brussels month 2026-10). The Playwright environment has no pymongo; run DB seeding through subprocess with /root/.venv/bin/python3. One failed super-admin login attempt from this run is recorded in login_attempts (count 1). Auth playbook items were not re-tested this iteration."
+}

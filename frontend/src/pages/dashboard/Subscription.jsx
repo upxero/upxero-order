@@ -18,6 +18,7 @@ const ROWS = [
   ["Automatische e-mailmeldingen", false, true],
 ];
 const PLAN_LABEL = { free: "Free", pro: "Pro", legacy: "Gratis Pro" };
+const STATUS_LABEL = { active: "Actief", trialing: "Proefperiode", past_due: "Betaling achterstallig", canceling: "Wordt opgezegd", canceled: "Opgezegd", expired: "Verlopen" };
 
 function Cell({ v }) {
   const { t } = useI18n();
@@ -32,7 +33,7 @@ function Comparison() {
     <Card className="overflow-x-auto rounded-xl border-slate-200 p-5 shadow-sm" data-testid="plan-comparison">
       <h2 className="font-heading text-lg font-semibold text-slate-900">{t("Free vs. Pro")}</h2>
       <table className="mt-3 w-full text-sm">
-        <thead><tr className="text-left text-slate-500"><th className="py-2 font-medium" /><th className="py-2 text-center font-medium">Free · $0</th><th className="py-2 text-center font-medium">Pro · $9.99</th></tr></thead>
+        <thead><tr className="text-left text-slate-500"><th className="py-2 font-medium" /><th className="whitespace-nowrap py-2 text-center font-medium">Free · $0</th><th className="whitespace-nowrap py-2 text-center font-medium">Pro · $9.99</th></tr></thead>
         <tbody className="divide-y divide-slate-100">
           {ROWS.map(([label, f, p]) => (
             <tr key={label}><td className="py-2.5 pr-3 text-slate-700">{t(label)}</td><td className="py-2.5 text-center text-slate-600"><Cell v={f} /></td><td className="py-2.5 text-center font-medium text-slate-900"><Cell v={p} /></td></tr>
@@ -67,7 +68,7 @@ function PlanActions({ billing }) {
     return (
       <div className="space-y-3" data-testid="pro-info">
         <p className="text-sm text-slate-600">
-          {t("Status")}: <span className="font-semibold text-slate-900" data-testid="subscription-status">{billing.status}</span>
+          {t("Status")}: <span className="font-semibold text-slate-900" data-testid="subscription-status">{t(STATUS_LABEL[billing.status] || billing.status)}</span>
           {billing.renewalPeriodEnd && <> · {t(billing.cancelAtPeriodEnd ? "Toegang tot" : "Volgende betaling")}: <span className="font-semibold text-slate-900" data-testid="subscription-renewal">{fmt(billing.renewalPeriodEnd)}</span></>}
         </p>
         {billing.manageUrl && (

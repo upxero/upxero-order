@@ -107,6 +107,7 @@ async def update_item(item_id: str, payload: MenuItemReq, user: dict = Depends(a
     if not cat:
         raise HTTPException(status_code=400, detail="Ongeldige categorie")
     activating = await _check_activation(rid, item_id, payload.isAvailable)
+    previous = await db.menu_items.find_one({"_id": oid(item_id), "restaurantId": rid}) if activating else None
     doc = payload.model_dump()
     doc["optionGroups"] = _prepare_groups(payload.optionGroups)
     doc["updatedAt"] = now_iso()
@@ -116,7 +117,12 @@ async def update_item(item_id: str, payload: MenuItemReq, user: dict = Depends(a
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product niet gevonden")
     if activating:
-        await enforce_after_activation(activating, oid(item_id))
+        try:
+            await enforce_after_activation(activating, oid(item_id))
+        except HTTPException:
+            # Lost the activation race: restore the whole previous version so nothing is half-saved.
+            await db.menu_items.replace_one({"_id": oid(item_id)}, previous)
+            raise
     updated = await db.menu_items.find_one({"_id": oid(item_id)})
     return serialize(updated)
 
