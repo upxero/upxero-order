@@ -10,7 +10,7 @@ from pymongo.errors import DuplicateKeyError
 from db import db
 from security import require_roles, restaurant_id_of
 from services import whop
-from services.entitlements import entitlements, effective_plan, month_key, orders_used
+from services.entitlements import PRO_STATUSES, entitlements, effective_plan, month_key, orders_used
 from services.audit import audit
 
 log = logging.getLogger("upxero.billing")
@@ -40,11 +40,17 @@ async def _sync_restaurant(r: dict) -> str:
     refs = set(await db.billing_checkouts.distinct("ref", {"restaurantId": rid}))
     if not refs:
         return "none"
-    for m in await whop.list_memberships():
-        meta = m.get("metadata") or {}
-        if meta.get("restaurant_id") == rid and meta.get("checkout_ref") in refs:
-            return await whop.apply_membership(await whop.get_membership(m["id"]))
-    return "none"
+    candidates = [m for m in await whop.list_memberships()
+                  if (m.get("metadata") or {}).get("restaurant_id") == rid
+                  and (m.get("metadata") or {}).get("checkout_ref") in refs]
+    # Prefer a membership that still grants access.
+    candidates.sort(key=lambda m: m.get("status") not in PRO_STATUSES)
+    result = "none"
+    for m in candidates:
+        result = await whop.apply_membership(await whop.get_membership(m["id"]))
+        if result.startswith("applied:"):
+            break
+    return result
 
 
 async def _background_resync(rid):
@@ -160,9 +166,11 @@ async def whop_webhook(request: Request):
         if mid:
             try:
                 result = await whop.apply_membership(await whop.get_membership(mid))
-            except whop.WhopError:
-                # Let Whop retry later; drop the claim so the retry is processed.
+            except Exception as e:
+                # Release the claim so Whop's retry is processed.
                 await db.whop_events.delete_one({"_id": wid})
-                return JSONResponse({"detail": "upstream unavailable"}, status_code=503)
+                if not isinstance(e, whop.WhopError):
+                    log.exception("Whop webhook processing failed for event type %s", typ)
+                return JSONResponse({"detail": "temporarily unavailable"}, status_code=503)
     await db.whop_events.update_one({"_id": wid}, {"$set": {"status": "processed", "result": result}})
     return {"ok": True}

@@ -92,13 +92,14 @@ async def reserve_order_slot(r: dict) -> str | None:
         await db.order_usage.update_one({"_id": uid}, {"$inc": {"count": 1}, "$setOnInsert": on_insert}, upsert=True)
         return uid
     try:
-        # Matches only while count < limit; at the limit the upsert collides on _id.
-        await db.order_usage.find_one_and_update(
-            {"_id": uid, "count": {"$lt": limit}},
-            {"$inc": {"count": 1}, "$setOnInsert": on_insert},
-            upsert=True, return_document=ReturnDocument.AFTER,
-        )
+        await db.order_usage.update_one({"_id": uid}, {"$setOnInsert": {**on_insert, "count": 0}}, upsert=True)
     except DuplicateKeyError:
+        pass  # created concurrently
+    # Conditional, non-upsert increment: only succeeds while count < limit.
+    doc = await db.order_usage.find_one_and_update(
+        {"_id": uid, "count": {"$lt": limit}}, {"$inc": {"count": 1}}, return_document=ReturnDocument.AFTER,
+    )
+    if not doc:
         raise HTTPException(status_code=409, detail=LIMIT_MSG)
     return uid
 

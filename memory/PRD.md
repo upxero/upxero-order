@@ -128,3 +128,24 @@ Build a real, production-ready V1 multi-tenant SaaS: commission-free online orde
 - Tested in iteration_12 plus the previous run's 12/12 purge-lifecycle tests.
 - Backlog (cosmetic): dates use Dutch month names in the English UI; staff see edit forms that return 403; the mobile toast covers the header; dialogs are edge-to-edge on mobile.
 
+
+## Whop Free/Pro subscriptions — Stage 2 backend (2026-10-21)
+- services/entitlements.py holds the central FREE/PRO/legacy feature map. Plan is derived: legacy flag → legacy; Whop status in {trialing, active, past_due, canceling} → pro; else free. Monthly order counter is `order_usage` `<rid>:<YYYY-MM Europe/Brussels>`: pre-created, conditional non-upsert $inc, slot released if the order isn't saved, counts all plans, limit enforced on Free only.
+- Enforcement (server-side):
+  - 20 active products (create, edit-activate, availability).
+  - 30 orders/month.
+  - Delivery: PUT /delivery, quote/order and the public deliveryEnabled flag.
+  - Staff: invite and activate; staff login and every request via require_roles.
+  - New-order, customer and status emails.
+- services/whop.py: Whop v1 REST (GET /plans, POST /checkout_configurations {plan_id, metadata{restaurant_id, checkout_ref}, redirect_url}, GET/list /memberships), Standard Webhooks verification (HMAC keyed with the literal ws_ secret, 5-minute tolerance), apply_membership (fetched from Whop; validates company/product/plan; links via checkout_ref; unique index one restaurant per membership).
+- routers/billing.py:
+  - GET /api/billing/status (6h background resync).
+  - POST /api/billing/checkout.
+  - POST /api/billing/sync (30s cooldown).
+  - POST /api/webhooks/whop (dedupe via whop_events; claim released on failure).
+- Admin: PATCH /api/admin/restaurants/{id}/legacy; GET /api/admin/billing/whop-plans.
+- Migration billing_legacy_v1 (startup, once): non-deleted restaurants without subscription → legacy (Bistro Demo, New Edo Sushi).
+- Config: WHOP_BUSINESS_ID and WHOP_PRODUCT_ID set; WHOP_PLAN_ID and WHOP_WEBHOOK_SECRET empty; WHOP_API_KEY pending (user adds it themselves).
+- Tests: tests/test_whop_billing.py (in-process, Whop mocked) + tests/test_billing_live.py, 24/24 after fixes (iteration_13).
+- Next: Stage 3 frontend (Subscription page, upgrade notices, public limit/pickup-only messaging), then Stage 4.
+

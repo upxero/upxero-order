@@ -31,6 +31,9 @@ async def my_restaurant(user: dict = Depends(any_staff)):
     d = serialize(r)
     d["plan"] = effective_plan(r)
     return d
+
+
+@router.put("/profile")
 async def update_profile(payload: ProfileReq, user: dict = Depends(admin_only)):
     return await apply_profile_update(restaurant_id_of(user), payload.model_dump())
 
