@@ -7,6 +7,8 @@ import { useAuth } from "../../context/AuthContext";
 import { useT } from "../../context/I18nContext";
 import { resolveFileUrl, menuItemImageUrl } from "../../lib/files";
 import { EmptyState } from "../../components/EmptyState";
+import { UpgradeNotice } from "../../components/UpgradeNotice";
+import { useBilling } from "../../lib/useBilling";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -22,6 +24,20 @@ const emptyItem = {
   imageFile: null, imageFileId: "",
 };
 const IMG_TYPES = ["image/jpeg", "image/png", "image/webp"];
+
+function ProductLimitNotice({ items }) {
+  const t = useT();
+  const { billing, isFree } = useBilling();
+  if (!isFree || !items) return null;
+  const limit = billing.usage.activeProductLimit;
+  const active = items.filter((i) => i.isAvailable).length;
+  if (active < limit - 5) return null;
+  return (
+    <UpgradeNotice testid="product-limit-notice"
+      title={active >= limit ? "Je hebt het maximum aantal actieve producten bereikt" : "Je nadert het maximum aantal actieve producten"}
+      text={t("{active} / {limit} actieve producten. Het Free-abonnement staat maximaal {limit} actieve producten toe; met Pro is dit onbeperkt. Bestaande producten blijven altijd bewaard.", { active, limit })} />
+  );
+}
 
 export default function MenuItems() {
   const { restaurant } = useAuth();
@@ -131,6 +147,8 @@ export default function MenuItems() {
           <Plus className="mr-2 h-4 w-4" /> {t("Nieuw product")}
         </Button>
       </div>
+
+      <ProductLimitNotice items={items} />
 
       {items === null ? (
         <div className="grid place-items-center py-20"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>

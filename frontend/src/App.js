@@ -32,6 +32,7 @@ import Profile from "./pages/dashboard/Profile";
 import Staff from "./pages/dashboard/Staff";
 import AdminRestaurants from "./pages/dashboard/AdminRestaurants";
 import AdminRestaurantDetail from "./pages/dashboard/AdminRestaurantDetail";
+import Subscription from "./pages/dashboard/Subscription";
 import OrderPage from "./pages/order/OrderPage";
 import OrderConfirmation from "./pages/order/OrderConfirmation";
 import OrderStatus from "./pages/order/OrderStatus";
@@ -77,6 +78,7 @@ function App() {
             <Route path="openingstijden" element={forRestaurant(<OpeningHours />)} />
             <Route path="instellingen" element={forRestaurant(<Settings />)} />
             <Route path="profiel" element={forRestaurant(<Profile />)} />
+            <Route path="abonnement" element={<ProtectedRoute roles={["restaurant_admin"]}><Subscription /></ProtectedRoute>} />
             <Route
               path="personeel"
               element={

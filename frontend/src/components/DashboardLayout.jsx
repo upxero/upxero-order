@@ -19,6 +19,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { I18nProvider } from "../context/I18nContext";
 import { makeT } from "../lib/i18n";
+import { CreditCard } from "lucide-react";
 import { Logo } from "./Logo";
 import { VerifyEmailBanner } from "./VerifyEmailBanner";
 import { logoUrl, resolveFileUrl } from "../lib/files";
@@ -83,6 +84,21 @@ export function DashboardLayout() {
         >
           <Users className="h-4.5 w-4.5" size={18} />
           {t("Personeel")}
+        </NavLink>
+      )}
+      {user?.role === "restaurant_admin" && (
+        <NavLink
+          to="/dashboard/abonnement"
+          onClick={() => setOpen(false)}
+          data-testid="sidebar-nav-abonnement"
+          className={({ isActive }) =>
+            `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              isActive ? "bg-emerald-600 text-white shadow-sm" : "text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+            }`
+          }
+        >
+          <CreditCard className="h-4.5 w-4.5" size={18} />
+          {t("Abonnement")}
         </NavLink>
       )}
       {user?.role === "super_admin" && (

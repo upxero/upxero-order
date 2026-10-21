@@ -10,7 +10,7 @@ from security import hash_password, require_roles
 from services.audit import audit
 from services.deletion import anonymise_user, delete_restaurant_data, purge_restaurant
 from services import whop
-from services.entitlements import effective_plan
+from services.entitlements import PRO_STATUSES, effective_plan
 from utils import now_iso, oid, serialize, unique_slug
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -34,6 +34,7 @@ async def list_restaurants(user: dict = Depends(super_only)):
         data["orderCount"] = await db.orders.count_documents({"restaurantId": str(r["_id"])})
         data["userCount"] = await db.users.count_documents({"restaurantId": str(r["_id"])})
         data["pendingDeletion"] = str(r["_id"]) in pending
+        data["plan"] = effective_plan(r)
         out.append(data)
     return out
 
@@ -118,7 +119,10 @@ async def restaurant_detail(restaurant_id: str, user: dict = Depends(super_only)
 async def set_legacy_plan(restaurant_id: str, payload: AdminLegacyReq, user: dict = Depends(super_only)):
     r = await _restaurant_or_404(restaurant_id)
     _not_deleted(r)
-    if bool((r.get("subscription") or {}).get("legacy")) != payload.legacy:
+    sub = r.get("subscription") or {}
+    if payload.legacy and sub.get("whopStatus") in PRO_STATUSES:
+        raise HTTPException(status_code=409, detail="Dit restaurant heeft een actief betaald abonnement. Laat dit eerst opzeggen voordat je gratis Pro toekent.")
+    if bool(sub.get("legacy")) != payload.legacy:
         await db.restaurants.update_one({"_id": r["_id"]}, {"$set": {"subscription.legacy": payload.legacy}})
         await audit(user, r["_id"], "subscription.legacy_set" if payload.legacy else "subscription.legacy_removed")
     r = await db.restaurants.find_one({"_id": r["_id"]})

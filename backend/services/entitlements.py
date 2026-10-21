@@ -79,7 +79,7 @@ async def monthly_limit_reached(r: dict) -> bool:
     return limit is not None and await orders_used(str(r["_id"])) >= limit
 
 
-LIMIT_MSG = "Dit restaurant kan deze maand geen online bestellingen meer ontvangen."
+LIMIT_MSG = "Dit restaurant kan tijdelijk geen nieuwe online bestellingen aannemen. Neem rechtstreeks contact op met het restaurant."
 
 
 async def reserve_order_slot(r: dict) -> str | None:
@@ -119,4 +119,18 @@ async def assert_can_activate_product(r: dict) -> None:
         return
     active = await db.menu_items.count_documents({"restaurantId": str(r["_id"]), "isAvailable": True})
     if active >= limit:
+        raise HTTPException(status_code=403, detail=PRODUCT_LIMIT_MSG)
+
+
+async def enforce_after_activation(r: dict, item_id, delete_on_fail: bool = False) -> None:
+    """Post-write recheck closes the race between concurrent activations: losers are rolled back."""
+    limit = entitlements(r)["max_active_products"]
+    if limit is None:
+        return
+    active = await db.menu_items.count_documents({"restaurantId": str(r["_id"]), "isAvailable": True})
+    if active > limit:
+        if delete_on_fail:
+            await db.menu_items.delete_one({"_id": item_id})
+        else:
+            await db.menu_items.update_one({"_id": item_id}, {"$set": {"isAvailable": False}})
         raise HTTPException(status_code=403, detail=PRODUCT_LIMIT_MSG)

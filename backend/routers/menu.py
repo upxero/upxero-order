@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from db import db
 from models import AvailabilityReq, CategoryReq, MenuItemReq
 from security import require_roles, restaurant_id_of
-from services.entitlements import assert_can_activate_product
+from services.entitlements import assert_can_activate_product, enforce_after_activation
 from services.storage import IMAGE_MIMES, delete_file, save_upload
 from utils import now_iso, oid, serialize
 
@@ -87,12 +87,15 @@ async def create_item(payload: MenuItemReq, user: dict = Depends(admin_only)):
     if not cat:
         raise HTTPException(status_code=400, detail="Ongeldige categorie")
     if payload.isAvailable:
-        await assert_can_activate_product(await db.restaurants.find_one({"_id": oid(rid)}))
+        r = await db.restaurants.find_one({"_id": oid(rid)})
+        await assert_can_activate_product(r)
     ts = now_iso()
     doc = payload.model_dump()
     doc["optionGroups"] = _prepare_groups(payload.optionGroups)
     doc.update({"restaurantId": rid, "createdAt": ts, "updatedAt": ts})
     res = await db.menu_items.insert_one(doc)
+    if payload.isAvailable:
+        await enforce_after_activation(r, res.inserted_id, delete_on_fail=True)
     doc["_id"] = res.inserted_id
     return serialize(doc)
 
@@ -103,7 +106,7 @@ async def update_item(item_id: str, payload: MenuItemReq, user: dict = Depends(a
     cat = await db.menu_categories.find_one({"_id": oid(payload.categoryId), "restaurantId": rid})
     if not cat:
         raise HTTPException(status_code=400, detail="Ongeldige categorie")
-    await _check_activation(rid, item_id, payload.isAvailable)
+    activating = await _check_activation(rid, item_id, payload.isAvailable)
     doc = payload.model_dump()
     doc["optionGroups"] = _prepare_groups(payload.optionGroups)
     doc["updatedAt"] = now_iso()
@@ -112,29 +115,36 @@ async def update_item(item_id: str, payload: MenuItemReq, user: dict = Depends(a
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product niet gevonden")
+    if activating:
+        await enforce_after_activation(activating, oid(item_id))
     updated = await db.menu_items.find_one({"_id": oid(item_id)})
     return serialize(updated)
 
 
 async def _check_activation(rid: str, item_id: str, want_available: bool):
-    # Only switching an inactive product on counts against the Free limit.
+    # Only switching an inactive product on counts against the Free limit; returns the restaurant to recheck.
     if not want_available:
-        return
+        return None
     item = await db.menu_items.find_one({"_id": oid(item_id), "restaurantId": rid}, {"isAvailable": 1})
     if item and not item.get("isAvailable"):
-        await assert_can_activate_product(await db.restaurants.find_one({"_id": oid(rid)}))
+        r = await db.restaurants.find_one({"_id": oid(rid)})
+        await assert_can_activate_product(r)
+        return r
+    return None
 
 
 @router.patch("/items/{item_id}/availability")
 async def set_availability(item_id: str, payload: AvailabilityReq, user: dict = Depends(any_staff)):
     rid = str(restaurant_id_of(user))
-    await _check_activation(rid, item_id, payload.isAvailable)
+    activating = await _check_activation(rid, item_id, payload.isAvailable)
     result = await db.menu_items.update_one(
         {"_id": oid(item_id), "restaurantId": rid},
         {"$set": {"isAvailable": payload.isAvailable, "updatedAt": now_iso()}},
     )
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product niet gevonden")
+    if activating:
+        await enforce_after_activation(activating, oid(item_id))
     updated = await db.menu_items.find_one({"_id": oid(item_id)})
     return serialize(updated)
 

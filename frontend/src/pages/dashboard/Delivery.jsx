@@ -9,12 +9,15 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Switch } from "../../components/ui/switch";
 import { Card } from "../../components/ui/card";
+import { UpgradeNotice } from "../../components/UpgradeNotice";
+import { useBilling } from "../../lib/useBilling";
 
 export default function Delivery() {
   const { restaurant, refetch } = useAuth();
   const t = useT();
   const [form, setForm] = useState(null);
   const [saving, setSaving] = useState(false);
+  const { isFree } = useBilling();
 
   useEffect(() => {
     api.get("/restaurant/me").then(({ data }) => {
@@ -68,6 +71,9 @@ export default function Delivery() {
         </div>
       )}
 
+      {isFree && <UpgradeNotice title="Bezorging is inbegrepen in Pro" text={t("Met Pro bied je bezorging aan met eigen zones, bezorgkosten en minimumbedragen. Je huidige instellingen blijven bewaard.")} testid="delivery-upgrade-notice" />}
+
+      <fieldset disabled={isFree} className={isFree ? "pointer-events-none space-y-6 opacity-60" : "space-y-6"} data-testid="delivery-fieldset">
       <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -146,6 +152,7 @@ export default function Delivery() {
           {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t("Opslaan")}
         </Button>
       </div>
+      </fieldset>
     </div>
   );
 }

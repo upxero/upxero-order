@@ -58,7 +58,7 @@ export default function OrderPage() {
   );
 
   const { restaurant, categories, items } = data;
-  const canOrder = restaurant.orderingEnabled && restaurant.isOpen;
+  const canOrder = restaurant.orderingEnabled && restaurant.isOpen && !restaurant.monthlyLimitReached;
   const itemsByCat = (cid) => items.filter((i) => i.categoryId === cid);
 
   const addToCart = (item, selectedOptions, quantity) => {
@@ -122,7 +122,8 @@ export default function OrderPage() {
         <div className="mx-auto mt-4 max-w-5xl px-4 sm:px-6">
           <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-medium text-amber-800" data-testid="ordering-unavailable">
             <Clock className="h-4 w-4" />
-            {restaurant.orderingEnabled ? t("Het restaurant is momenteel gesloten.") : t("Online bestellen is momenteel niet beschikbaar.")}
+            {restaurant.monthlyLimitReached ? t("Dit restaurant kan tijdelijk geen nieuwe online bestellingen aannemen. Neem rechtstreeks contact op met het restaurant.")
+              : restaurant.orderingEnabled ? t("Het restaurant is momenteel gesloten.") : t("Online bestellen is momenteel niet beschikbaar.")}
           </div>
         </div>
       )}

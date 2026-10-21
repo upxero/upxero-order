@@ -9,6 +9,8 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Card } from "../../components/ui/card";
+import { UpgradeNotice } from "../../components/UpgradeNotice";
+import { useBilling } from "../../lib/useBilling";
 
 export default function Staff() {
   const t = useT();
@@ -16,6 +18,7 @@ export default function Staff() {
   const [email, setEmail] = useState("");
   const [inviting, setInviting] = useState(false);
   const [busy, setBusy] = useState(null);
+  const { isFree } = useBilling();
 
   const load = () => api.get("/restaurant/staff").then(({ data }) => setData(data)).catch(() => setData({ staff: [], invitations: [] }));
   useEffect(() => { load(); }, []);
@@ -57,16 +60,18 @@ export default function Staff() {
         <p className="mt-1 text-sm text-slate-500">{t("Nodig medewerkers uit en beheer hun toegang.")}</p>
       </div>
 
+      {isFree && <UpgradeNotice title="Personeelsaccounts zijn inbegrepen in Pro" text={t("Met Pro nodig je medewerkers uit en beheer je hun toegang. Bestaande medewerkers blijven bewaard, maar kunnen pas weer inloggen met Pro.")} testid="staff-upgrade-notice" />}
+
       <Card className="rounded-xl border-slate-200 p-5 shadow-sm">
         <h2 className="font-heading text-lg font-semibold text-slate-900">{t("Medewerker uitnodigen")}</h2>
         <p className="mt-1 text-sm text-slate-500">{t("Ze ontvangen een e-mail om hun eigen account aan te maken.")}</p>
         <form onSubmit={invite} className="mt-4 flex flex-col gap-3 sm:flex-row" data-testid="invite-form">
           <div className="flex-1">
             <Label htmlFor="invite-email" className="sr-only">{t("E-mailadres")}</Label>
-            <Input id="invite-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
+            <Input id="invite-email" type="email" required disabled={isFree} value={email} onChange={(e) => setEmail(e.target.value)}
               placeholder="medewerker@email.be" data-testid="invite-email-input" />
           </div>
-          <Button type="submit" disabled={inviting} className="bg-emerald-600 hover:bg-emerald-700" data-testid="invite-submit-button">
+          <Button type="submit" disabled={inviting || isFree} className="bg-emerald-600 hover:bg-emerald-700" data-testid="invite-submit-button">
             {inviting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />} {t("Uitnodigen")}
           </Button>
         </form>

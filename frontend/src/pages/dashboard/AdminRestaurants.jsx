@@ -13,6 +13,7 @@ import {
 } from "../../components/ui/dialog";
 import { StatusBadge } from "./AdminRestaurantDetail";
 import { ArchivedRestaurants } from "../../components/admin/ArchivedRestaurants";
+import { PlanBadge } from "../../components/admin/PlanCard";
 
 const empty = { restaurantName: "", ownerName: "", email: "", password: "" };
 
@@ -56,6 +57,7 @@ export default function AdminRestaurants() {
               <div className="flex items-start justify-between">
                 <span className="grid h-10 w-10 place-items-center rounded-lg bg-slate-100 text-slate-500"><Store className="h-5 w-5" /></span>
                 <StatusBadge r={r} pending={r.pendingDeletion} />
+                <PlanBadge plan={r.plan} />
               </div>
               <p className="mt-3 font-semibold text-slate-900">{r.name}</p>
               <p className="text-sm text-slate-500">{r.city || "—"}</p>

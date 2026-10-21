@@ -10,6 +10,7 @@ import { Card } from "../../components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../components/ui/dialog";
 import { EditEssentials } from "../../components/admin/EditEssentials";
 import { DeletionRequests } from "../../components/admin/DeletionRequests";
+import { PlanCard } from "../../components/admin/PlanCard";
 
 const ACTIONS = {
   "restaurant.created": "Restaurant aangemaakt",
@@ -21,6 +22,10 @@ const ACTIONS = {
   "deletion.rejected": "Verwijderverzoek afgewezen",
   "deletion.completed": "Verwijdering uitgevoerd",
   "restaurant.purged": "Restaurant definitief gewist",
+  "subscription.legacy_set": "Gratis Pro toegekend",
+  "subscription.legacy_removed": "Gratis Pro ingetrokken",
+  "subscription.changed": "Abonnement gewijzigd (Whop)",
+  "subscription.checkout_started": "Afrekenen gestart",
 };
 const ROLES = { restaurant_admin: "Beheerder", restaurant_staff: "Medewerker" };
 
@@ -122,6 +127,8 @@ export default function AdminRestaurantDetail() {
         <Info label={t("Bestellingen")} value={data.orderCount} testid="admin-detail-orders" />
         <Info label={t("Online bestellen")} value={t(r.orderingEnabled ? "Aan" : "Uit")} testid="admin-detail-ordering" />
       </div>
+
+      <PlanCard restaurant={r} plan={data.plan} onChanged={load} />
 
       <EditEssentials key={r.updatedAt} restaurant={r} disabled={!!r.deletedAt} onSaved={load} />
 

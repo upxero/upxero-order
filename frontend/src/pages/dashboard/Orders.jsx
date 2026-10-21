@@ -7,6 +7,8 @@ import { statusLabel, STATUS_STYLES } from "../../lib/constants";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n, useT } from "../../context/I18nContext";
 import { EmptyState } from "../../components/EmptyState";
+import { UpgradeNotice, UsageMeter } from "../../components/UpgradeNotice";
+import { useBilling } from "../../lib/useBilling";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
@@ -62,6 +64,23 @@ function nextAction(order) {
     case "ready": return { status: "completed", label: "Voltooid" };
     default: return null;
   }
+}
+
+function OrderUsage() {
+  const t = useT();
+  const { billing, isFree } = useBilling();
+  if (!isFree) return null;
+  const { ordersThisMonth: used, monthlyOrderLimit: limit } = billing.usage;
+  return (
+    <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4" data-testid="order-usage">
+      <UsageMeter used={used} limit={limit} label={t("Bestellingen gebruikt deze maand")} testid="order-usage-meter" />
+      {used >= limit - 5 && (
+        <UpgradeNotice testid="order-limit-notice"
+          title={used >= limit ? "Je maandlimiet voor bestellingen is bereikt" : "Je nadert je maandlimiet voor bestellingen"}
+          text={t("Upgrade naar Pro om de maandlimiet op te heffen. Bestaande bestellingen blijven zichtbaar en beheerbaar.")} />
+      )}
+    </div>
+  );
 }
 
 export default function Orders() {
@@ -250,6 +269,7 @@ export default function Orders() {
 
   return (
     <div className="space-y-6" data-testid="orders-page">
+      <OrderUsage />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t("Bestellingen")}</h1>
