@@ -3,6 +3,18 @@ export const euro = (value) =>
     Number(value || 0)
   );
 
+export const formatCurrency = (value, currency = "EUR") => {
+  const selectedCurrency = currency === "USD" ? "USD" : "EUR";
+
+  return new Intl.NumberFormat(
+    selectedCurrency === "USD" ? "en-US" : "nl-BE",
+    {
+      style: "currency",
+      currency: selectedCurrency,
+    }
+  ).format(Number(value ?? 0));
+};
+
 export const formatTime = (iso) => {
   try {
     return new Date(iso).toLocaleTimeString("nl-BE", {

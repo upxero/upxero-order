@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { UtensilsCrossed, Plus, Pencil, Trash2, Loader2, X, Upload, Image as ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
-import { euro } from "../../lib/format";
+import { euro, formatCurrency } from "../../lib/format";
 import { useAuth } from "../../context/AuthContext";
 import { useT } from "../../context/I18nContext";
 import { resolveFileUrl, menuItemImageUrl } from "../../lib/files";
@@ -172,7 +172,9 @@ export default function MenuItems() {
                     <p className="truncate font-semibold text-slate-900">{it.name}</p>
                     <p className="text-xs font-medium text-emerald-600">{catName(it.categoryId)}</p>
                   </div>
-                  <span className="tabular font-semibold text-slate-900">{euro(it.price)}</span>
+                  <span className="tabular font-semibold text-slate-900">
+                    {formatCurrency(it.price, restaurant?.currency || "EUR")}
+                  </span>
                 </div>
                 {it.description && <p className="mt-1 line-clamp-2 text-sm text-slate-500">{it.description}</p>}
                 <div className="mt-2 flex items-center justify-between">
@@ -215,7 +217,9 @@ export default function MenuItems() {
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <Label>{t("Prijs (€)")}</Label>
+                <Label>
+                  {t("Prijs (€)").replace("€", restaurant?.currency === "USD" ? "$" : "€")}
+                </Label>
                 <Input type="number" step="0.01" min="0" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className="mt-1.5" data-testid="menu-price-input" />
               </div>
               <div>

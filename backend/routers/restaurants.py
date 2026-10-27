@@ -84,7 +84,55 @@ async def remove_logo(user: dict = Depends(admin_only)):
         await delete_file(old)
     return {"message": "Logo verwijderd."}
 
+# ---------- Restaurant cover image (JPG/PNG/WebP, 5 MB) ----------
 
+@router.post("/cover")
+async def upload_cover(file: UploadFile = File(...), user: dict = Depends(admin_only)):
+    rid = restaurant_id_of(user)
+
+    file_id, _ = await save_upload(
+        file, rid, "cover", IMAGE_MIMES, LOGO_MAX
+    )
+
+    r = await db.restaurants.find_one({"_id": rid})
+    old = r.get("coverFileId") if r else None
+
+    await db.restaurants.update_one(
+        {"_id": rid},
+        {"$set": {
+            "coverFileId": file_id,
+            "updatedAt": now_iso()
+        }}
+    )
+
+    if old and old != file_id:
+        await delete_file(old)
+
+    return {
+        "message": "Omslagfoto geüpload.",
+        "coverFileId": file_id
+    }
+
+
+@router.delete("/cover")
+async def remove_cover(user: dict = Depends(admin_only)):
+    rid = restaurant_id_of(user)
+
+    r = await db.restaurants.find_one({"_id": rid})
+    old = r.get("coverFileId") if r else None
+
+    await db.restaurants.update_one(
+        {"_id": rid},
+        {
+            "$unset": {"coverFileId": ""},
+            "$set": {"updatedAt": now_iso()}
+        }
+    )
+
+    if old:
+        await delete_file(old)
+
+    return {"message": "Omslagfoto verwijderd."}
 # ---------- Menu file (PDF/JPG/PNG, 10 MB) ----------
 
 

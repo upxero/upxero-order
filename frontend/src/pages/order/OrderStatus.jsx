@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { Loader2, ShoppingBag, Truck, MapPin, Check, Clock, XCircle } from "lucide-react";
 import api from "../../lib/api";
-import { euro } from "../../lib/format";
+import { formatCurrency } from "../../lib/format";
 import { makeT } from "../../lib/i18n";
 import { Logo } from "../../components/Logo";
 
@@ -46,6 +46,7 @@ export default function OrderStatus() {
     : order.estimatedTime;
   const showEta = etaValue && ["accepted", "preparing", "ready"].includes(order.status);
   const payWord = order.orderType === "delivery" ? t("levering") : t("afhalen");
+  const money = (value) => formatCurrency(value, order.currency || "EUR");
 
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8" data-testid="order-status-page">
@@ -108,16 +109,16 @@ export default function OrderStatus() {
               <li key={i}>
                 <div className="flex justify-between">
                   <span className="text-slate-700"><span className="font-semibold">{it.quantity}×</span> {it.productName}</span>
-                  <span className="tabular text-slate-600">{euro(it.lineTotal)}</span>
+                  <span className="tabular text-slate-600">{money(it.lineTotal)}</span>
                 </div>
                 {it.selectedOptions?.length > 0 && <p className="pl-5 text-xs text-slate-400">{it.selectedOptions.map((s) => s.optionName).join(", ")}</p>}
               </li>
             ))}
           </ul>
           <div className="mt-4 space-y-1 border-t border-slate-100 pt-4 text-sm">
-            <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{euro(order.subtotal)}</span></div>
-            {order.orderType === "delivery" && <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{order.deliveryFee > 0 ? euro(order.deliveryFee) : t("Gratis")}</span></div>}
-            <div className="flex justify-between text-base font-bold text-slate-900"><span>{t("Totaal")}</span><span className="tabular">{euro(order.total)}</span></div>
+            <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{money(order.subtotal)}</span></div>
+            {order.orderType === "delivery" && <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{order.deliveryFee > 0 ? money(order.deliveryFee) : t("Gratis")}</span></div>}
+            <div className="flex justify-between text-base font-bold text-slate-900"><span>{t("Totaal")}</span><span className="tabular">{money(order.total)}</span></div>
           </div>
           {order.notes && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-600"><span className="font-medium">{t("Opmerking:")}</span> {order.notes}</p>}
           <p className="mt-4 text-center text-xs text-slate-400">{t("Deze pagina werkt automatisch bij. Betaling bij {pay}.", { pay: payWord })}</p>

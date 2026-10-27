@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Phone, MapPin, StickyNote, ShoppingBag, Truck, RefreshCw, Clock, Pencil, Bell, BellRing, Check, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
-import { euro, formatTime } from "../../lib/format";
+import { formatCurrency, formatTime } from "../../lib/format";
 import { statusLabel, STATUS_STYLES } from "../../lib/constants";
 import { useAuth } from "../../context/AuthContext";
 import { useI18n, useT } from "../../context/I18nContext";
@@ -84,7 +84,7 @@ function OrderUsage() {
 }
 
 export default function Orders() {
-  const { user } = useAuth();
+  const { user, restaurant } = useAuth();
   const { lang } = useI18n();
   const t = useT();
   const isAdmin = user?.role === "restaurant_admin";
@@ -308,7 +308,18 @@ export default function Orders() {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filtered.map((o) => (
-            <OrderCard key={o.id} order={o} onStatus={changeStatus} onEta={updateEta} onDelete={deleteOrder} isAdmin={isAdmin} busy={busy} lang={lang} t={t} />
+            <OrderCard
+              key={o.id}
+              order={o}
+              onStatus={changeStatus}
+              onEta={updateEta}
+              onDelete={deleteOrder}
+              isAdmin={isAdmin}
+              busy={busy}
+              lang={lang}
+              t={t}
+              currency={restaurant?.currency || "EUR"}
+            />
           ))}
         </div>
       )}
@@ -316,7 +327,9 @@ export default function Orders() {
   );
 }
 
-function OrderCard({ order, onStatus, onEta, onDelete, isAdmin, busy, lang, t }) {
+function OrderCard({ order, onStatus, onEta, onDelete, isAdmin, busy, lang, t, currency }) {
+  const money = (value) =>
+  formatCurrency(value, order.currency || currency);
   const next = nextAction(order);
   const canCancel = !["completed", "cancelled"].includes(order.status);
   const canDelete = isAdmin && ["completed", "cancelled"].includes(order.status);
@@ -364,7 +377,7 @@ function OrderCard({ order, onStatus, onEta, onDelete, isAdmin, busy, lang, t })
           <li key={i}>
             <div className="flex justify-between gap-2">
               <span className="text-slate-700"><span className="font-semibold text-slate-900">{it.quantity}×</span> {it.productName}</span>
-              <span className="tabular text-slate-600">{euro(it.lineTotal)}</span>
+              <span className="tabular text-slate-600">{money(it.lineTotal)}</span>
             </div>
             {it.selectedOptions?.length > 0 && <p className="pl-5 text-xs text-slate-400">{it.selectedOptions.map((s) => s.optionName).join(", ")}</p>}
           </li>
@@ -387,11 +400,11 @@ function OrderCard({ order, onStatus, onEta, onDelete, isAdmin, busy, lang, t })
       )}
 
       <div className="mt-3 space-y-0.5 border-t border-slate-100 pt-3 text-sm">
-        <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{euro(order.subtotal)}</span></div>
+        <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{money(order.subtotal)}</span></div>
         {order.orderType === "delivery" && (
-          <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{order.deliveryFee > 0 ? euro(order.deliveryFee) : t("Gratis")}</span></div>
+          <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{order.deliveryFee > 0 ? money(order.deliveryFee) : t("Gratis")}</span></div>
         )}
-        <div className="flex justify-between font-semibold text-slate-900"><span>{t("Totaal")}</span><span className="tabular">{euro(order.total)}</span></div>
+        <div className="flex justify-between font-semibold text-slate-900"><span>{t("Totaal")}</span><span className="tabular">{money(order.total)}</span></div>
       </div>
 
       <div className="mt-4 flex flex-wrap gap-2">

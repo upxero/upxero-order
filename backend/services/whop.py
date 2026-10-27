@@ -15,7 +15,10 @@ from services.audit import audit
 from services.entitlements import effective_plan
 
 log = logging.getLogger("upxero.whop")
-BASE = "https://api.whop.com/api/v1"
+BASE = os.environ.get(
+    "WHOP_API_BASE_URL",
+    "https://api.whop.com/api/v1"
+).rstrip("/")
 WEBHOOK_TOLERANCE_S = 300
 SYSTEM_ACTOR = {"_id": "whop", "email": "whop-sync", "role": "system"}
 
@@ -38,20 +41,32 @@ def checkout_configured() -> bool:
     return api_configured() and bool(cfg("WHOP_PLAN_ID"))
 
 
+
+
+
 async def _request(method: str, path: str, **kw) -> dict:
-    headers = {"Authorization": f"Bearer {cfg('WHOP_API_KEY')}", "Accept": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {cfg('WHOP_API_KEY')}",
+        "Accept": "application/json",
+    }
+
     try:
         async with httpx.AsyncClient(base_url=BASE, timeout=8) as c:
             res = await c.request(method, path, headers=headers, **kw)
     except httpx.HTTPError:
         log.warning("Whop API unreachable: %s %s", method, path)
         raise WhopError(0, path)
-    if res.status_code >= 400:
-        # Never log bodies or headers (may echo identifiers); status + path only.
-        log.warning("Whop API error %s on %s %s", res.status_code, method, path)
-        raise WhopError(res.status_code, path)
-    return res.json()
 
+    if res.status_code >= 400:
+        log.warning(
+            "Whop API error %s on %s %s",
+            res.status_code,
+            method,
+            path,
+        )
+        raise WhopError(res.status_code, path)
+
+    return res.json()
 
 async def list_plans() -> list:
     body = await _request("GET", "/plans", params={

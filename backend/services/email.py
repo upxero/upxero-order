@@ -346,13 +346,20 @@ def _customer_order_html(restaurant_name: str, order: dict, link: str, heading: 
     brand = escape(EMAIL_FROM_NAME)
     resto = escape(restaurant_name or brand)
     otype = t["delivery"] if order.get("orderType") == "delivery" else t["pickup"]
+    currency = order.get("currency") or "EUR"
+
+    def money(value):
+        amount = float(value or 0)
+        if currency == "USD":
+            return f"${amount:,.2f}"
+        return _eur(value)
     rows = ""
     for it in order.get("items", []):
         opts = ", ".join(escape(o.get("optionName", "")) for o in it.get("selectedOptions", []))
         opt_html = f'<div style="font-size:12px;color:#888">{opts}</div>' if opts else ""
         rows += (f'<tr><td style="padding:6px 0;border-bottom:1px solid #eee"><strong>{it.get("quantity")}×</strong> '
                  f'{escape(it.get("productName",""))}{opt_html}</td>'
-                 f'<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">{_eur(it.get("lineTotal"))}</td></tr>')
+                 f'<td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;white-space:nowrap">{money(it.get("lineTotal"))}</td></tr>')
     eta = ""
     mins = order.get("estimatedMinutes")
     if mins:
@@ -360,7 +367,7 @@ def _customer_order_html(restaurant_name: str, order: dict, link: str, heading: 
     elif order.get("estimatedTime"):
         eta = f'<p style="margin:12px 0 0;font-size:16px"><strong>{_eta_label(order, t)}: {escape(str(order["estimatedTime"]))}</strong></p>'
     delivery_row = (f'<tr><td style="padding:2px 0;color:#555">{t["delivery_fee"]}</td>'
-                    f'<td style="padding:2px 0;text-align:right">{_eur(order.get("deliveryFee"))}</td></tr>') if order.get("orderType") == "delivery" else ""
+                    f'<td style="padding:2px 0;text-align:right">{money(order.get("deliveryFee"))}</td></tr>') if order.get("orderType") == "delivery" else ""
     button = (f'<p style="margin:24px 0"><a href="{escape(link)}" style="background:#059669;color:#fff;'
               f'padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600">{t["view_order"]}</a></p>') if link else ""
     return (
@@ -370,10 +377,10 @@ def _customer_order_html(restaurant_name: str, order: dict, link: str, heading: 
         f'<p style="margin:0">{escape(intro)}</p>{eta}'
         f'<table width="100%" style="margin-top:16px;border-collapse:collapse">{rows}</table>'
         f'<table width="100%" style="margin-top:12px">'
-        f'<tr><td style="padding:2px 0;color:#555">{t["subtotal"]}</td><td style="padding:2px 0;text-align:right">{_eur(order.get("subtotal"))}</td></tr>'
+        f'<tr><td style="padding:2px 0;color:#555">{t["subtotal"]}</td><td style="padding:2px 0;text-align:right">{money(order.get("subtotal"))}</td></tr>'
         f'{delivery_row}'
         f'<tr><td style="padding:6px 0;font-weight:700;border-top:1px solid #eee">{t["total"]}</td>'
-        f'<td style="padding:6px 0;text-align:right;font-weight:700;border-top:1px solid #eee">{_eur(order.get("total"))}</td></tr>'
+        f'<td style="padding:6px 0;text-align:right;font-weight:700;border-top:1px solid #eee">{money(order.get("total"))}</td></tr>'
         f'</table>{button}'
         f'<p style="font-size:12px;color:#888;margin-top:24px">{t["sent_by"]} {brand}. {t["never_pw"]}</p>'
         f'</td></tr></table>'

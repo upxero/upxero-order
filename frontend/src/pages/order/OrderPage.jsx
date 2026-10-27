@@ -5,7 +5,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import api, { apiError } from "../../lib/api";
-import { euro } from "../../lib/format";
+import { euro, formatCurrency } from "../../lib/format";
 import { makeT } from "../../lib/i18n";
 import { Logo } from "../../components/Logo";
 import { resolveFileUrl } from "../../lib/files";
@@ -46,6 +46,8 @@ export default function OrderPage() {
   const cartCount = cart.reduce((s, l) => s + l.quantity, 0);
 
   const t = makeT(data?.restaurant?.defaultLanguage || "en");
+  const money = (value) =>
+  formatCurrency(value, data?.restaurant?.currency || "EUR");
 
   if (data === undefined) return <div className="grid min-h-screen place-items-center bg-slate-50"><Loader2 className="h-6 w-6 animate-spin text-emerald-600" /></div>;
   if (data === null) return (
@@ -88,7 +90,15 @@ export default function OrderPage() {
     <div className="min-h-screen bg-slate-50 pb-28 lg:pb-8">
       {/* Header */}
       <div className="relative bg-slate-900">
-        <img src="https://images.unsplash.com/photo-1517248135467-4c7edcad34c4" alt="" className="absolute inset-0 h-full w-full object-cover opacity-30" />
+        <img
+          src={
+            restaurant.coverImage
+              ? resolveFileUrl(restaurant.coverImage)
+              : "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4"
+          }
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover opacity-30"
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900 to-slate-900/50" />
         <div className="relative mx-auto max-w-5xl px-4 py-8 sm:px-6">
           <div className="flex items-center justify-between">
@@ -159,7 +169,7 @@ export default function OrderPage() {
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-slate-900">{item.name}</p>
                     {item.description && <p className="mt-0.5 line-clamp-2 text-sm text-slate-500">{item.description}</p>}
-                    <p className="mt-2 tabular font-semibold text-emerald-700">{euro(item.price)}</p>
+                    <p className="mt-2 tabular font-semibold text-emerald-700">{money(item.price)}</p>
                     {!item.isAvailable && <span className="mt-1 inline-block rounded bg-slate-100 px-1.5 py-0.5 text-xs font-medium text-slate-500">{t("Niet beschikbaar")}</span>}
                   </div>
                   {item.image && (
@@ -181,15 +191,34 @@ export default function OrderPage() {
           <Button onClick={() => setCartOpen(true)} data-testid="view-cart-button"
             className="flex w-full items-center justify-between bg-emerald-600 px-4 py-6 text-base hover:bg-emerald-700">
             <span className="flex items-center gap-2"><ShoppingBag className="h-5 w-5" /> {cartCount} {t("in winkelmand")}</span>
-            <span className="tabular font-bold">{euro(subtotal)}</span>
+            <span className="tabular font-bold">{money(subtotal)}</span>
           </Button>
         </div>
       )}
 
-      {optItem && <OptionsModal item={optItem} onClose={() => setOptItem(null)} onAdd={addToCart} t={t} />}
+      {optItem && (
+        <OptionsModal
+          item={optItem}
+          onClose={() => setOptItem(null)}
+          onAdd={addToCart}
+          t={t}
+          currency={data?.restaurant?.currency || "EUR"}
+        />
+      )}
 
-      <CartSheet open={cartOpen} onClose={() => setCartOpen(false)} cart={cart} setQty={setQty} subtotal={subtotal}
-        onCheckout={() => { setCartOpen(false); setCheckout(true); }} t={t} />
+      <CartSheet
+        open={cartOpen}
+        onClose={() => setCartOpen(false)}
+        cart={cart}
+        setQty={setQty}
+        subtotal={subtotal}
+        onCheckout={() => {
+          setCartOpen(false);
+          setCheckout(true);
+        }}
+        t={t}
+        currency={data?.restaurant?.currency || "EUR"}
+      />
 
       {checkout && (
         <Checkout slug={slug} restaurant={restaurant} cart={cart} subtotal={subtotal} t={t}
@@ -201,7 +230,8 @@ export default function OrderPage() {
   );
 }
 
-function OptionsModal({ item, onClose, onAdd, t }) {
+function OptionsModal({ item, onClose, onAdd, t, currency }) {
+  const money = (value) => formatCurrency(value, currency);
   const [selected, setSelected] = useState({});
   const [qty, setQty] = useState(1);
 
@@ -250,7 +280,7 @@ function OptionsModal({ item, onClose, onAdd, t }) {
                       <input type={g.multiple ? "checkbox" : "radio"} name={g.id} checked={isSel(g.id, opt.id)} onChange={() => toggle(g, opt)} className="accent-emerald-600" />
                       {opt.name}
                     </span>
-                    {opt.price > 0 && <span className="tabular text-sm font-medium text-slate-500">+{euro(opt.price)}</span>}
+                    {opt.price > 0 && <span className="tabular text-sm font-medium text-slate-500">+{money(opt.price)}</span>}
                   </label>
                 ))}
               </div>
@@ -264,7 +294,7 @@ function OptionsModal({ item, onClose, onAdd, t }) {
             <button onClick={() => setQty((q) => q + 1)} className="grid h-8 w-8 place-items-center rounded-md hover:bg-slate-100" data-testid="option-qty-plus"><Plus className="h-4 w-4" /></button>
           </div>
           <Button onClick={confirm} className="bg-emerald-600 hover:bg-emerald-700" data-testid="option-add-button">
-            {t("Toevoegen")} · {euro(unit * qty)}
+            {t("Toevoegen")} · {money(unit * qty)}
           </Button>
         </div>
       </DialogContent>
@@ -272,7 +302,8 @@ function OptionsModal({ item, onClose, onAdd, t }) {
   );
 }
 
-function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout, t }) {
+function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout, t, currency }) {
+  const money = (value) => formatCurrency(value, currency);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50">
@@ -298,7 +329,7 @@ function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout, t }) {
                       <button onClick={() => setQty(l.cartId, 1)} className="grid h-7 w-7 place-items-center rounded-md border border-slate-200 hover:bg-slate-50" data-testid={`cart-plus-${l.productId}`}><Plus className="h-3.5 w-3.5" /></button>
                     </div>
                   </div>
-                  <span className="tabular font-semibold text-slate-900">{euro((l.unitPrice + l.selectedOptions.reduce((s, o) => s + o.price, 0)) * l.quantity)}</span>
+                  <span className="tabular font-semibold text-slate-900">{money((l.unitPrice + l.selectedOptions.reduce((s, o) => s + o.price, 0)) * l.quantity)}</span>
                 </li>
               ))}
             </ul>
@@ -306,7 +337,7 @@ function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout, t }) {
         </div>
         {cart.length > 0 && (
           <div className="border-t border-slate-200 p-5">
-            <div className="flex justify-between text-sm"><span className="text-slate-500">{t("Subtotaal")}</span><span className="tabular font-semibold">{euro(subtotal)}</span></div>
+            <div className="flex justify-between text-sm"><span className="text-slate-500">{t("Subtotaal")}</span><span className="tabular font-semibold">{money(subtotal)}</span></div>
             <Button onClick={onCheckout} className="mt-3 w-full bg-emerald-600 py-6 text-base hover:bg-emerald-700" data-testid="cart-checkout-button">
               {t("Afrekenen")} <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
@@ -318,6 +349,7 @@ function CartSheet({ open, onClose, cart, setQty, subtotal, onCheckout, t }) {
 }
 
 function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef, t }) {
+  const money = (value) => formatCurrency(value, restaurant?.currency || "EUR");
   const [orderType, setOrderType] = useState(restaurant.pickupEnabled ? "pickup" : "delivery");
   const [customer, setCustomer] = useState({ name: "", phone: "", email: "" });
   const [address, setAddress] = useState({ street: "", houseNumber: "", postalCode: "", city: "", extra: "" });
@@ -348,7 +380,7 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
       setQuote(data);
       if (data.available === false) toast.error(unavailableMsg(data));
       else if (data.belowMinimum) {
-        const amt = euro(data.minimumOrderAmount);
+        const amt = money(data.minimumOrderAmount);
         toast.error(t("Voor bezorging in jouw gebied is een minimum bestelling van {amt} vereist.", { amt }));
       }
     } catch (e) { toast.error(t(apiError(e))); } finally { setQuoting(false); }
@@ -427,7 +459,7 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
               {quoting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />} {t("Bereken bezorgkosten")}
             </Button>
             {quote?.available === false && <p className="rounded-lg bg-rose-50 p-2.5 text-sm font-medium text-rose-700" data-testid="delivery-unavailable-msg">{unavailableMsg(quote)}</p>}
-            {quote?.belowMinimum && <p className="rounded-lg bg-amber-50 p-2.5 text-sm font-medium text-amber-800" data-testid="delivery-min-msg">{t("Voor bezorging in jouw gebied is een minimum bestelling van {amt} vereist.", { amt: euro(quote.minimumOrderAmount) })}</p>}
+            {quote?.belowMinimum && <p className="rounded-lg bg-amber-50 p-2.5 text-sm font-medium text-amber-800" data-testid="delivery-min-msg">{t("Voor bezorging in jouw gebied is een minimum bestelling van {amt} vereist.", { amt: money(quote.minimumOrderAmount) })}</p>}
           </div>
         )}
 
@@ -439,11 +471,11 @@ function Checkout({ slug, restaurant, cart, subtotal, onBack, onSuccess, idemRef
 
         {/* summary */}
         <div className="mt-4 space-y-1 rounded-xl border border-slate-200 bg-white p-4 text-sm">
-          <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{euro(subtotal)}</span></div>
+          <div className="flex justify-between text-slate-500"><span>{t("Subtotaal")}</span><span className="tabular">{money(subtotal)}</span></div>
           {orderType === "delivery" && (
-            <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{quote?.available ? (fee > 0 ? euro(fee) : t("Gratis")) : "—"}</span></div>
+            <div className="flex justify-between text-slate-500"><span>{t("Bezorgkosten")}</span><span className="tabular">{quote?.available ? (fee > 0 ? money(fee) : t("Gratis")) : "—"}</span></div>
           )}
-          <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-bold text-slate-900"><span>{t("Totaal")}</span><span className="tabular" data-testid="checkout-total">{euro(total)}</span></div>
+          <div className="flex justify-between border-t border-slate-100 pt-2 text-base font-bold text-slate-900"><span>{t("Totaal")}</span><span className="tabular" data-testid="checkout-total">{money(total)}</span></div>
         </div>
 
         <Button onClick={submit} disabled={!canSubmit || submitting} className="mt-4 w-full bg-emerald-600 py-6 text-base hover:bg-emerald-700" data-testid="checkout-submit-button">

@@ -70,6 +70,11 @@ def _public_restaurant(r: dict) -> dict:
         "freeDeliveryEnabled": r.get("freeDeliveryEnabled", False),
         "freeDeliveryThreshold": r.get("freeDeliveryThreshold", 0),
         "defaultLanguage": r.get("defaultLanguage", "nl"),
+        "currency": r.get("currency", "EUR"),
+        "coverImage": (
+            f"/api/public/restaurant/{r['slug']}/cover?v={r['coverFileId']}"
+            if r.get("coverFileId") else ""
+        ),
         "isOpen": compute_is_open(r),
         "hasLocation": r.get("latitude") is not None and r.get("longitude") is not None,
     }
@@ -120,6 +125,18 @@ async def public_logo(slug: str):
     data, meta = await open_file(r["logoFileId"])
     return _file_response(data, meta)
 
+@router.get("/restaurant/{slug}/cover")
+async def public_cover(slug: str):
+    r = await db.restaurants.find_one({"slug": slug})
+
+    if not r or not r.get("coverFileId"):
+        raise HTTPException(
+            status_code=404,
+            detail="Omslagfoto niet gevonden"
+        )
+
+    data, meta = await open_file(r["coverFileId"])
+    return _file_response(data, meta)
 
 @router.get("/restaurant/{slug}/menu-item/{item_id}/image")
 async def public_menu_item_image(slug: str, item_id: str):
@@ -323,6 +340,7 @@ async def create_public_order(slug: str, payload: PublicOrderReq, background_tas
     order = {
         "restaurantId": rid,
         "orderNumber": order_number,
+        "currency": r.get("currency") or "EUR",
         "customer": payload.customer.model_dump(),
         "orderType": payload.orderType,
         "items": items_snapshot,
@@ -402,6 +420,7 @@ def _public_order_view(order: dict, restaurant: dict) -> dict:
         "orderNumber": order.get("orderNumber"),
         "restaurantName": restaurant["name"] if restaurant else "",
         "language": (restaurant.get("defaultLanguage", "nl") if restaurant else "en"),
+        "currency": order.get("currency") or (restaurant.get("currency", "EUR") if restaurant else "EUR"),
         "orderType": order.get("orderType"),
         "status": order.get("status"),
         "estimatedMinutes": order.get("estimatedMinutes"),

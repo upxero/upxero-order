@@ -137,7 +137,7 @@ class ProfileReq(BaseModel):
     city: Optional[str] = ""
     country: Optional[str] = "BE"
     defaultLanguage: str = "nl"
-
+    currency: Literal["EUR", "USD"] = "EUR"
 
 class DeliveryZoneReq(BaseModel):
     id: Optional[str] = None

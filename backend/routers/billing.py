@@ -102,7 +102,10 @@ async def start_checkout(user: dict = Depends(admin_only)):
         raise HTTPException(status_code=400, detail="Dit restaurant heeft al een actief abonnement.")
     if not whop.checkout_configured():
         raise HTTPException(status_code=503, detail="Abonnementen zijn nog niet geconfigureerd.")
-    base = os.environ["FRONTEND_URL"].rstrip("/")
+    base = os.environ.get(
+        "WHOP_CHECKOUT_REDIRECT_BASE_URL",
+        os.environ["FRONTEND_URL"]
+    ).rstrip("/")
     ref = secrets.token_urlsafe(24)
     rid = str(r["_id"])
     await db.billing_checkouts.insert_one({

@@ -23,9 +23,12 @@ export default function Profile() {
   const [slug, setSlug] = useState("");
   const [logoFileId, setLogoFileId] = useState("");
   const [logoBusy, setLogoBusy] = useState(false);
+  const [coverFileId, setCoverFileId] = useState("");
+  const [coverBusy, setCoverBusy] = useState(false);
   const [menu, setMenu] = useState({ id: "", name: "", type: "" });
   const [menuBusy, setMenuBusy] = useState(false);
   const logoRef = useRef();
+  const coverRef = useRef();
   const menuRef = useRef();
 
   const hydrate = (data) => {
@@ -33,10 +36,13 @@ export default function Profile() {
       name: data.name || "", description: data.description || "", logo: data.logo || "",
       phone: data.phone || "", email: data.email || "", street: data.street || "",
       houseNumber: data.houseNumber || "", postalCode: data.postalCode || "", city: data.city || "",
-      country: data.country || "BE", defaultLanguage: data.defaultLanguage || "nl",
+      country: data.country || "BE",
+      defaultLanguage: data.defaultLanguage || "nl",
+      currency: data.currency || "EUR",
     });
     setSlug(data.slug || "");
     setLogoFileId(data.logoFileId || "");
+    setCoverFileId(data.coverFileId || "");
     setMenu({ id: data.menuFileId || "", name: data.menuFileName || "", type: data.menuFileType || "" });
   };
 
@@ -81,6 +87,55 @@ export default function Profile() {
       refetch();
     } catch (err) { toast.error(t(apiError(err))); } finally { setLogoBusy(false); }
   };
+
+  const uploadCover = async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+
+  if (!IMG_TYPES.includes(file.type)) {
+    toast.error(t("Alleen JPG, PNG of WebP."));
+    return;
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    toast.error(t("Omslagfoto is te groot (max 5 MB)."));
+    return;
+  }
+
+  setCoverBusy(true);
+
+  try {
+    const fd = new FormData();
+    fd.append("file", file);
+
+    const { data } = await api.post("/restaurant/cover", fd);
+
+    setCoverFileId(data.coverFileId);
+    toast.success(t("Omslagfoto geüpload."));
+    refetch();
+  } catch (err) {
+    toast.error(t(apiError(err)));
+  } finally {
+    setCoverBusy(false);
+  }
+};
+
+const removeCover = async () => {
+  setCoverBusy(true);
+
+  try {
+    await api.delete("/restaurant/cover");
+
+    setCoverFileId("");
+    toast.success(t("Omslagfoto verwijderd."));
+    refetch();
+  } catch (err) {
+    toast.error(t(apiError(err)));
+  } finally {
+    setCoverBusy(false);
+  }
+};
 
   const uploadMenu = async (e) => {
     const file = e.target.files?.[0];
@@ -135,6 +190,71 @@ export default function Profile() {
             </div>
           </div>
           <p className="mt-1.5 text-xs text-slate-400">{t("JPG, PNG of WebP · max 5 MB. Wordt getoond op je bestelpagina.")}</p>
+        </div>
+
+        {/* Restaurant omslagfoto */}
+        <div>
+          <Label>{t("Omslagfoto / Cover image")}</Label>
+
+          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+            {coverFileId ? (
+              <img
+                src={resolveFileUrl(
+                  `/api/public/restaurant/${slug}/cover?v=${coverFileId}`
+                )}
+                alt={t("Omslagfoto")}
+                className="h-44 w-full object-cover"
+                data-testid="profile-cover-preview"
+              />
+            ) : (
+              <div className="flex h-44 items-center justify-center text-slate-400">
+                <ImageIcon className="mr-2 h-6 w-6" />
+                {t("Geen omslagfoto ingesteld")}
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            <input
+              ref={coverRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={uploadCover}
+              data-testid="profile-cover-input"
+            />
+
+            <Button
+              type="button"
+              variant="outline"
+              disabled={coverBusy}
+              onClick={() => coverRef.current?.click()}
+            >
+              {coverBusy ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              {coverFileId ? t("Vervangen") : t("Uploaden")}
+            </Button>
+
+            {coverFileId && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={coverBusy}
+                onClick={removeCover}
+                className="text-rose-600 hover:bg-rose-50"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {t("Verwijderen")}
+              </Button>
+            )}
+          </div>
+
+          <p className="mt-2 text-xs text-slate-400">
+            {t("JPG, PNG of WebP · max 5 MB. Aanbevolen formaat: 1600 × 600 pixels.")}
+          </p>
         </div>
 
         <div><Label>{t("Omschrijving")}</Label><Textarea value={form.description} onChange={upd("description")} className="mt-1.5" data-testid="profile-desc-input" /></div>
@@ -199,6 +319,22 @@ export default function Profile() {
               <option value="nl">Nederlands</option>
             </select>
           </div>
+        </div>
+
+        <div className="mt-4">
+          <Label>{t("Valuta / Currency")}</Label>
+          <select
+            value={form.currency}
+            onChange={upd("currency")}
+            className="mt-1.5 h-10 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm"
+            data-testid="profile-currency-select"
+          >
+            <option value="EUR">Euro (€) — EUR</option>
+            <option value="USD">US Dollar ($) — USD</option>
+          </select>
+          <p className="mt-1 text-xs text-slate-500">
+            {t("De gekozen valuta wordt gebruikt voor je menuprijzen. Bestaande bedragen worden niet automatisch omgerekend.")}
+          </p>
         </div>
       </Card>
 
